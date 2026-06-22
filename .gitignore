@@ -1,0 +1,35 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Variables de entorno — NUNCA versionar
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Django
+*.log
+db.sqlite3
+staticfiles/
+media/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Migraciones generadas (puedes quitar esta línea si prefieres versionar migraciones)
+# */migrations/*.py
+# */migrations/__pycache__/
