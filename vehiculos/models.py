@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Upper
@@ -34,6 +35,7 @@ class Vehiculo(models.Model):
         max_length=50,
         blank=True,
         null=True,
+        unique=True,
         verbose_name="número interno",
     )
     modelo_vehiculo = models.ForeignKey(
@@ -670,6 +672,23 @@ class Observacion(models.Model):
             models.Index(fields=["tipo_observacion"], name="idx_observacion_tipo"),
             models.Index(fields=["fecha_registro"], name="idx_observacion_fecha"),
         ]
+
+    def clean(self):
+        errores = {}
+        if self.tipo_observacion == self.TipoObservacion.GPS and not self.instalacion_gps_id:
+            errores["instalacion_gps"] = (
+                "Una observación de tipo GPS debe referenciar una instalación GPS."
+            )
+        if self.tipo_observacion == self.TipoObservacion.SEGURO and not self.poliza_seguro_id:
+            errores["poliza_seguro"] = (
+                "Una observación de tipo SEGURO debe referenciar una póliza de seguro."
+            )
+        if self.tipo_observacion == self.TipoObservacion.OPERATIVA and not self.asignacion_vehiculo_id:
+            errores["asignacion_vehiculo"] = (
+                "Una observación de tipo OPERATIVA debe referenciar una asignación de vehículo."
+            )
+        if errores:
+            raise ValidationError(errores)
 
     def __str__(self):
         return f"[{self.tipo_observacion}] {self.vehiculo.numero_serie} — {self.fecha_registro:%Y-%m-%d}"

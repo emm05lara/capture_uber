@@ -35,12 +35,38 @@ class PersonaAdmin(admin.ModelAdmin):
 
 @admin.register(Conductor)
 class ConductorAdmin(admin.ModelAdmin):
-    list_display = ["nombre_completo", "telefono", "correo", "estatus_conductor", "fecha_creacion"]
-    list_filter = ["estatus_conductor"]
-    search_fields = ["nombre_completo", "telefono", "correo"]
+    list_display = [
+        "nombre_completo", "telefono", "correo",
+        "estatus_conductor", "numero_licencia", "tipo_licencia",
+        "fecha_vencimiento_licencia", "licencia_vigente_display",
+    ]
+    list_filter = ["estatus_conductor", "tipo_licencia"]
+    search_fields = ["nombre_completo", "telefono", "correo", "numero_licencia", "curp"]
     ordering = ["nombre_completo"]
-    readonly_fields = ["fecha_creacion", "fecha_actualizacion"]
+    readonly_fields = ["fecha_creacion", "fecha_actualizacion", "licencia_vigente_display"]
     actions = ["marcar_activo", "marcar_inactivo", "marcar_bloqueado", "marcar_baja"]
+    fieldsets = (
+        ("Datos personales", {
+            "fields": ("nombre_completo", "telefono", "correo", "estatus_conductor"),
+        }),
+        ("Licencia de conducir", {
+            "fields": (
+                "numero_licencia", "tipo_licencia",
+                "fecha_vencimiento_licencia", "licencia_vigente_display",
+            ),
+        }),
+        ("Identificación", {
+            "fields": ("curp",),
+        }),
+        ("Auditoría", {
+            "fields": ("fecha_creacion", "fecha_actualizacion"),
+            "classes": ("collapse",),
+        }),
+    )
+
+    @admin.display(description="Licencia vigente", boolean=True)
+    def licencia_vigente_display(self, obj):
+        return obj.licencia_vigente
 
     @admin.action(description="Marcar seleccionados como ACTIVO")
     def marcar_activo(self, request, queryset):

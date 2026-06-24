@@ -24,12 +24,19 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # apps del proyecto
+    "accounts",
     "catalogos",
     "actores",
     "vehiculos",
     "dispositivos",
     "operacion",
 ]
+
+# ---------------------------------------------------------------------------
+# Modelo de usuario personalizado
+# Debe declararse antes de aplicar migraciones por primera vez.
+# ---------------------------------------------------------------------------
+AUTH_USER_MODEL = "accounts.CustomUser"
 
 # ---------------------------------------------------------------------------
 # Middleware — WhiteNoise va inmediatamente después de SecurityMiddleware

@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models.functions import Upper
+from django.utils.timezone import localdate
 
 
 # ---------------------------------------------------------------------------
@@ -47,11 +48,42 @@ class Conductor(Persona):
         BLOQUEADO = "BLOQUEADO", "Bloqueado"
         BAJA = "BAJA", "Baja"
 
+    class TipoLicencia(models.TextChoices):
+        A = "A", "A — Motocicleta"
+        B = "B", "B — Automóvil"
+        C = "C", "C — Camión ligero"
+        D = "D", "D — Autobús"
+        E = "E", "E — Vehículo especial"
+
     estatus_conductor = models.CharField(
         max_length=30,
         choices=Estatus.choices,
         default=Estatus.ACTIVO,
         verbose_name="estatus",
+    )
+    numero_licencia = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="número de licencia",
+    )
+    tipo_licencia = models.CharField(
+        max_length=1,
+        choices=TipoLicencia.choices,
+        blank=True,
+        null=True,
+        verbose_name="tipo de licencia",
+    )
+    fecha_vencimiento_licencia = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="vencimiento de licencia",
+    )
+    curp = models.CharField(
+        max_length=18,
+        blank=True,
+        null=True,
+        verbose_name="CURP",
     )
 
     class Meta:
@@ -62,7 +94,23 @@ class Conductor(Persona):
                 check=models.Q(estatus_conductor__in=["ACTIVO", "INACTIVO", "BLOQUEADO", "BAJA"]),
                 name="chk_conductor_estatus",
             ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(tipo_licencia__isnull=True)
+                    | models.Q(tipo_licencia__in=["A", "B", "C", "D", "E"])
+                ),
+                name="chk_conductor_tipo_licencia",
+            ),
         ]
+        indexes = [
+            models.Index(fields=["numero_licencia"], name="idx_conductor_licencia"),
+        ]
+
+    @property
+    def licencia_vigente(self):
+        if self.fecha_vencimiento_licencia is None:
+            return None
+        return self.fecha_vencimiento_licencia >= localdate()
 
 
 class TitularPoliza(Persona):
