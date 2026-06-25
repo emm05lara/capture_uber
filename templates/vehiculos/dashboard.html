@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ─── Encabezado ─── -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Dashboard</h1>
+        <p class="text-muted mb-0 small">Resumen de la flotilla — {{ hoy|date:"j N Y" }}</p>
+    </div>
+    <a href="{% url 'vehiculos:lista' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-list-ul me-1"></i>Ver todos los vehículos
+    </a>
+</div>
+
+<!-- ─── Tarjetas de métricas ─── -->
+<div class="row g-3 mb-4">
+
+    <!-- Total en flota -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="card card-stat border-secondary h-100">
+            <div class="card-body d-flex justify-content-between align-items-start">
+                <div>
+                    <p class="text-muted small text-uppercase fw-semibold mb-1">Total flota</p>
+                    <p class="display-6 fw-bold mb-0">{{ stats.total }}</p>
+                </div>
+                <i class="bi bi-collection fs-2 text-secondary opacity-50"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activos -->
+    <div class="col-sm-6 col-xl-2">
+        <div class="card card-stat border-primary h-100">
+            <div class="card-body d-flex justify-content-between align-items-start">
+                <div>
+                    <p class="text-muted small text-uppercase fw-semibold mb-1">Activos</p>
+                    <p class="display-6 fw-bold text-primary mb-0">{{ stats.activos }}</p>
+                </div>
+                <i class="bi bi-car-front fs-2 text-primary opacity-50"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verde -->
+    <div class="col-sm-4 col-xl">
+        <div class="card card-stat border-success h-100">
+            <div class="card-body d-flex justify-content-between align-items-start">
+                <div>
+                    <p class="text-muted small text-uppercase fw-semibold mb-1">
+                        <span class="semaforo-dot semaforo-dot-verde"></span>Verde
+                    </p>
+                    <p class="display-6 fw-bold text-success mb-0">{{ stats.verde }}</p>
+                    {% if stats.activos %}
+                    <p class="text-muted small mb-0">
+                        {{ stats.verde|floatformat:0 }} / {{ stats.activos }}
+                    </p>
+                    {% endif %}
+                </div>
+                <i class="bi bi-check-circle fs-2 text-success opacity-50"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Amarillo -->
+    <div class="col-sm-4 col-xl">
+        <div class="card card-stat border-warning h-100">
+            <div class="card-body d-flex justify-content-between align-items-start">
+                <div>
+                    <p class="text-muted small text-uppercase fw-semibold mb-1">
+                        <span class="semaforo-dot semaforo-dot-amarillo"></span>Amarillo
+                    </p>
+                    <p class="display-6 fw-bold text-warning mb-0">{{ stats.amarillo }}</p>
+                </div>
+                <i class="bi bi-exclamation-circle fs-2 text-warning opacity-50"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rojo -->
+    <div class="col-sm-4 col-xl">
+        <div class="card card-stat border-danger h-100">
+            <div class="card-body d-flex justify-content-between align-items-start">
+                <div>
+                    <p class="text-muted small text-uppercase fw-semibold mb-1">
+                        <span class="semaforo-dot semaforo-dot-rojo"></span>Rojo
+                    </p>
+                    <p class="display-6 fw-bold text-danger mb-0">{{ stats.rojo }}</p>
+                </div>
+                <i class="bi bi-x-circle fs-2 text-danger opacity-50"></i>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ─── Tabla de alertas ─── -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+            Vehículos que requieren atención
+        </h5>
+        {% if alertas %}
+        <span class="badge bg-secondary">{{ alertas|length }} mostrados</span>
+        {% endif %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-flotilla">
+            <thead class="table-light">
+                <tr>
+                    <th>N° interno</th>
+                    <th>Placas</th>
+                    <th>Vehículo</th>
+                    <th>Conductor</th>
+                    <th>Adeudos</th>
+                    <th>Semáforo</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in alertas %}
+                <tr onclick="window.location='{% url 'vehiculos:detalle' f.pk %}'">
+                    <td>{{ f.numero_interno|default:"—" }}</td>
+                    <td><strong>{{ f.placas_actuales|default:"Sin placas" }}</strong></td>
+                    <td class="text-nowrap">
+                        {{ f.nombre_marca }} {{ f.nombre_modelo_comercial }}
+                        <span class="text-muted">({{ f.anio_modelo }})</span>
+                    </td>
+                    <td>{{ f.conductor|default:"<span class='text-muted'>Sin asignar</span>" }}</td>
+                    <td>
+                        {% if f.cantidad_adeudos_pendientes %}
+                        <span class="badge bg-danger">{{ f.cantidad_adeudos_pendientes }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if f.semaforo_documental == "ROJO" %}
+                        <span class="badge bg-danger">
+                            <span class="semaforo-dot semaforo-dot-rojo"
+                                  style="border: 1px solid rgba(255,255,255,.5);"></span>
+                            ROJO
+                        </span>
+                        {% elif f.semaforo_documental == "AMARILLO" %}
+                        <span class="badge bg-warning text-dark">
+                            <span class="semaforo-dot semaforo-dot-amarillo"
+                                  style="border: 1px solid rgba(0,0,0,.2);"></span>
+                            AMARILLO
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ f.semaforo_documental|default:"N/D" }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'vehiculos:detalle' f.pk %}"
+                           class="btn btn-sm btn-outline-secondary"
+                           onclick="event.stopPropagation()">
+                            Ver →
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="bi bi-check2-circle text-success"></i>
+                            Todos los vehículos activos tienen el semáforo en verde.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if alertas|length == 20 %}
+    <div class="card-footer text-muted small text-center">
+        Mostrando los primeros 20. <a href="{% url 'vehiculos:lista' %}?semaforo=ROJO">Ver todos en ROJO</a>
+        o <a href="{% url 'vehiculos:lista' %}?semaforo=AMARILLO">todos en AMARILLO</a>.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

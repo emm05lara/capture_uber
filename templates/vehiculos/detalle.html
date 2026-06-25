@@ -1,0 +1,669 @@
+{% extends 'base.html' %}
+{% block title %}
+    {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:dashboard' %}">Dashboard</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:lista' %}">Vehículos</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+        </li>
+    </ol>
+</nav>
+
+<!-- ─── Header de la ficha ─── -->
+<div class="card mb-4 ficha-header">
+    <div class="card-body">
+        <div class="row align-items-start">
+            <div class="col">
+                <h2 class="h3 mb-1">
+                    {% if vehiculo.numero_interno %}
+                    Unidad <strong>{{ vehiculo.numero_interno }}</strong> —
+                    {% endif %}
+                    {% if ficha %}
+                    {{ ficha.nombre_marca }} {{ ficha.nombre_modelo_comercial }}
+                    {% if ficha.version %}<span class="text-muted fw-normal">{{ ficha.version }}</span>{% endif %}
+                    {{ ficha.anio_modelo }}
+                    {% else %}
+                    {{ vehiculo.modelo_vehiculo.marca }} {{ vehiculo.modelo_vehiculo.nombre_modelo_comercial }}
+                    {{ vehiculo.anio_modelo }}
+                    {% endif %}
+                </h2>
+
+                <p class="mb-2">
+                    <span class="text-muted small">VIN:</span>
+                    <code class="ficha-vin">{{ vehiculo.numero_serie }}</code>
+                    {% if ficha and ficha.placas_actuales %}
+                    &nbsp;|&nbsp;
+                    <span class="text-muted small">Placas:</span>
+                    <strong>{{ ficha.placas_actuales }}</strong>
+                    {% if ficha.entidad_emplacamiento_actual %}
+                    <span class="text-muted small">({{ ficha.entidad_emplacamiento_actual }})</span>
+                    {% endif %}
+                    {% endif %}
+                </p>
+
+                <!-- Badges de estatus y semáforo -->
+                <div class="d-flex flex-wrap gap-2">
+                    {% if vehiculo.estatus_unidad == "ACTIVA" %}
+                    <span class="badge bg-success fs-6">Activa</span>
+                    {% elif vehiculo.estatus_unidad == "TALLER" %}
+                    <span class="badge bg-warning text-dark fs-6">En taller</span>
+                    {% elif vehiculo.estatus_unidad == "SIN_ASIGNAR" %}
+                    <span class="badge bg-info text-dark fs-6">Sin asignar</span>
+                    {% elif vehiculo.estatus_unidad == "BAJA" %}
+                    <span class="badge bg-secondary fs-6">Baja</span>
+                    {% elif vehiculo.estatus_unidad == "SINIESTRADA" %}
+                    <span class="badge bg-danger fs-6">Siniestrada</span>
+                    {% elif vehiculo.estatus_unidad == "VENDIDA" %}
+                    <span class="badge bg-dark fs-6">Vendida</span>
+                    {% endif %}
+
+                    {% if ficha %}
+                    {% if ficha.semaforo_documental == "VERDE" %}
+                    <span class="badge bg-success fs-6">
+                        <i class="bi bi-circle-fill me-1"></i>Documental OK
+                    </span>
+                    {% elif ficha.semaforo_documental == "AMARILLO" %}
+                    <span class="badge bg-warning text-dark fs-6">
+                        <i class="bi bi-circle-fill me-1"></i>Revisar documentos
+                    </span>
+                    {% elif ficha.semaforo_documental == "ROJO" %}
+                    <span class="badge bg-danger fs-6">
+                        <i class="bi bi-circle-fill me-1"></i>Documentos vencidos
+                    </span>
+                    {% endif %}
+                    {% endif %}
+
+                    {% if adeudos_pendientes_count %}
+                    <span class="badge bg-danger fs-6">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        {{ adeudos_pendientes_count }} adeudo{% if adeudos_pendientes_count != 1 %}s{% endif %} pendiente{% if adeudos_pendientes_count != 1 %}s{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Tabs ─── -->
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" data-bs-toggle="tab"
+                data-bs-target="#tab-resumen" type="button" role="tab">
+            <i class="bi bi-info-circle me-1"></i>Resumen
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tab-asignaciones" type="button" role="tab">
+            <i class="bi bi-person me-1"></i>Asignaciones
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tab-documentacion" type="button" role="tab">
+            <i class="bi bi-file-text me-1"></i>Documentación
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tab-dispositivos" type="button" role="tab">
+            <i class="bi bi-router me-1"></i>Dispositivos
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if adeudos_pendientes_count %}text-danger{% endif %}"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-adeudos" type="button" role="tab">
+            <i class="bi bi-currency-dollar me-1"></i>Adeudos
+            {% if adeudos_pendientes_count %}
+            <span class="badge bg-danger ms-1">{{ adeudos_pendientes_count }}</span>
+            {% endif %}
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tab-observaciones" type="button" role="tab">
+            <i class="bi bi-journal-text me-1"></i>Bitácora
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- ═══ TAB 1: RESUMEN ═══ -->
+    <div class="tab-pane fade show active" id="tab-resumen" role="tabpanel">
+        <div class="row g-3">
+
+            <!-- Datos del vehículo -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-car-front me-1"></i>Datos del vehículo
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0 small">
+                            <dt class="col-5 text-muted">Marca</dt>
+                            <dd class="col-7">{{ vehiculo.modelo_vehiculo.marca }}</dd>
+
+                            <dt class="col-5 text-muted">Modelo</dt>
+                            <dd class="col-7">{{ vehiculo.modelo_vehiculo.nombre_modelo_comercial }}</dd>
+
+                            {% if vehiculo.modelo_vehiculo.version %}
+                            <dt class="col-5 text-muted">Versión</dt>
+                            <dd class="col-7">{{ vehiculo.modelo_vehiculo.version }}</dd>
+                            {% endif %}
+
+                            <dt class="col-5 text-muted">Año</dt>
+                            <dd class="col-7">{{ vehiculo.anio_modelo }}</dd>
+
+                            <dt class="col-5 text-muted">Color</dt>
+                            <dd class="col-7">{{ vehiculo.color.nombre_color }}</dd>
+
+                            <dt class="col-5 text-muted">VIN</dt>
+                            <dd class="col-7"><code>{{ vehiculo.numero_serie }}</code></dd>
+
+                            {% if vehiculo.numero_interno %}
+                            <dt class="col-5 text-muted">N° interno</dt>
+                            <dd class="col-7">{{ vehiculo.numero_interno }}</dd>
+                            {% endif %}
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conductor actual -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-person me-1"></i>Conductor actual
+                    </div>
+                    <div class="card-body">
+                        {% if ficha and ficha.conductor %}
+                        <dl class="row mb-0 small">
+                            <dt class="col-5 text-muted">Conductor</dt>
+                            <dd class="col-7 fw-semibold">{{ ficha.conductor }}</dd>
+
+                            {% if ficha.plataforma %}
+                            <dt class="col-5 text-muted">Plataforma</dt>
+                            <dd class="col-7">{{ ficha.plataforma }}</dd>
+                            {% endif %}
+
+                            {% if ficha.socio %}
+                            <dt class="col-5 text-muted">Socio</dt>
+                            <dd class="col-7">{{ ficha.socio }}</dd>
+                            {% endif %}
+
+                            {% if ficha.cuenta %}
+                            <dt class="col-5 text-muted">Cuenta</dt>
+                            <dd class="col-7"><code>{{ ficha.cuenta }}</code></dd>
+                            {% endif %}
+                        </dl>
+                        {% else %}
+                        <div class="empty-state py-3">
+                            <i class="bi bi-person-dash"></i>
+                            <span class="d-block small">Sin conductor asignado.</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documentación actual (resumen) -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-file-check me-1"></i>Documentación actual
+                    </div>
+                    <div class="card-body">
+                        {% if ficha %}
+                        <dl class="row mb-0 small">
+
+                            <!-- Póliza -->
+                            <dt class="col-5 text-muted">Póliza</dt>
+                            <dd class="col-7">
+                                {% if ficha.numero_poliza %}
+                                {{ ficha.numero_poliza }}
+                                <br>
+                                <span class="{% if ficha.vigencia_poliza and ficha.vigencia_poliza < hoy %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                                    Vence: {{ ficha.vigencia_poliza|date:"d/m/Y"|default:"—" }}
+                                    {% if ficha.vigencia_poliza and ficha.vigencia_poliza < hoy %}
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    {% endif %}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">Sin póliza</span>
+                                {% endif %}
+                            </dd>
+
+                            <!-- Verificación -->
+                            <dt class="col-5 text-muted">Verificación</dt>
+                            <dd class="col-7">
+                                {{ ficha.semestre_verificacion|default:"—" }}
+                                <br>
+                                <span class="{% if ficha.fecha_limite_verificacion and ficha.fecha_limite_verificacion < hoy %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                                    Límite: {{ ficha.fecha_limite_verificacion|date:"d/m/Y"|default:"—" }}
+                                    {% if ficha.fecha_limite_verificacion and ficha.fecha_limite_verificacion < hoy %}
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    {% endif %}
+                                </span>
+                            </dd>
+
+                            <!-- Tarjeta de circulación -->
+                            <dt class="col-5 text-muted">Tarjeta circ.</dt>
+                            <dd class="col-7">
+                                <span class="{% if ficha.vigencia_tarjeta_circulacion and ficha.vigencia_tarjeta_circulacion < hoy %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                                    Vence: {{ ficha.vigencia_tarjeta_circulacion|date:"d/m/Y"|default:"—" }}
+                                    {% if ficha.vigencia_tarjeta_circulacion and ficha.vigencia_tarjeta_circulacion < hoy %}
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    {% endif %}
+                                </span>
+                            </dd>
+
+                        </dl>
+                        {% else %}
+                        <p class="text-muted small mb-0">Información no disponible.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ═══ TAB 2: ASIGNACIONES ═══ -->
+    <div class="tab-pane fade" id="tab-asignaciones" role="tabpanel">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Conductor</th>
+                        <th>Plataforma</th>
+                        <th>Socio</th>
+                        <th>Cuenta</th>
+                        <th>Apps</th>
+                        <th>Inicio</th>
+                        <th>Fin</th>
+                        <th>Estatus</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in asignaciones %}
+                    <tr>
+                        <td class="fw-semibold">{{ a.conductor }}</td>
+                        <td>{{ a.plataforma|default:"—" }}</td>
+                        <td>{{ a.socio|default:"—" }}</td>
+                        <td><code>{{ a.cuenta|default:"—" }}</code></td>
+                        <td>
+                            {% for app in a.apps_asignadas.all %}
+                            <span class="badge bg-light text-dark border me-1">
+                                {{ app.app_transporte.nombre_app }}
+                            </span>
+                            {% empty %}—{% endfor %}
+                        </td>
+                        <td class="text-nowrap">{{ a.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="text-nowrap">{{ a.fecha_fin|date:"d/m/Y"|default:"<span class='badge bg-success'>Activa</span>" }}</td>
+                        <td>
+                            {% if a.es_actual %}
+                            <span class="badge bg-success">Activa</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Finalizada</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="bi bi-person-dash"></i>
+                                Sin asignaciones registradas.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══ TAB 3: DOCUMENTACIÓN ═══ -->
+    <div class="tab-pane fade" id="tab-documentacion" role="tabpanel">
+
+        <!-- Emplacamientos -->
+        <h6 class="text-uppercase text-muted small fw-semibold mt-1 mb-2">Placas / Emplacamientos</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Placas</th><th>Entidad</th><th>Inicio</th><th>Fin</th><th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in emplacamientos %}
+                    <tr>
+                        <td><strong>{{ e.placas }}</strong></td>
+                        <td>{{ e.entidad_federativa }}</td>
+                        <td>{{ e.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
+                        <td>{{ e.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {% if e.es_actual %}
+                            <span class="badge bg-success">Actual</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Anterior</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-muted text-center py-2">Sin emplacamientos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pólizas de seguro -->
+        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Pólizas de seguro</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>N° póliza</th><th>Aseguradora</th><th>Titular</th>
+                        <th>Inicio vigencia</th><th>Fin vigencia</th><th>Prima</th><th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in polizas %}
+                    <tr>
+                        <td><code>{{ p.numero_poliza }}</code></td>
+                        <td>{{ p.aseguradora }}</td>
+                        <td>{{ p.titular_poliza|default:"—" }}</td>
+                        <td>{{ p.fecha_vigencia_inicio|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="{% if p.fecha_vigencia_fin < hoy %}text-danger fw-semibold{% endif %}">
+                            {{ p.fecha_vigencia_fin|date:"d/m/Y" }}
+                            {% if p.fecha_vigencia_fin < hoy %}<i class="bi bi-exclamation-circle-fill"></i>{% endif %}
+                        </td>
+                        <td>
+                            {% if p.importe_prima %}${{ p.importe_prima|floatformat:2 }}{% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if p.vigente %}
+                            <span class="badge bg-success">Vigente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Vencida</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-muted text-center py-2">Sin pólizas registradas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Verificaciones -->
+        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Verificaciones vehiculares</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Semestre</th><th>Última verificación</th>
+                        <th>Fecha límite</th><th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in verificaciones %}
+                    <tr>
+                        <td>{{ v.semestre }}</td>
+                        <td>{{ v.fecha_ultima_verificacion|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="{% if v.fecha_limite_verificacion < hoy %}text-danger fw-semibold{% endif %}">
+                            {{ v.fecha_limite_verificacion|date:"d/m/Y" }}
+                            {% if v.fecha_limite_verificacion < hoy %}<i class="bi bi-exclamation-circle-fill"></i>{% endif %}
+                        </td>
+                        <td>
+                            {% if v.vencida %}
+                            <span class="badge bg-danger">Vencida</span>
+                            {% else %}
+                            <span class="badge bg-success">Vigente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-muted text-center py-2">Sin verificaciones.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tarjetas de circulación -->
+        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Tarjetas de circulación</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr><th>Emisión</th><th>Vigencia hasta</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                    {% for t in tarjetas %}
+                    <tr>
+                        <td>{{ t.fecha_emision|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="{% if t.fecha_vigencia_fin < hoy %}text-danger fw-semibold{% endif %}">
+                            {{ t.fecha_vigencia_fin|date:"d/m/Y" }}
+                            {% if t.fecha_vigencia_fin < hoy %}<i class="bi bi-exclamation-circle-fill"></i>{% endif %}
+                        </td>
+                        <td>
+                            {% if t.vigente %}
+                            <span class="badge bg-success">Vigente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Vencida</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-muted text-center py-2">Sin tarjetas registradas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tenencias -->
+        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Tenencias</h6>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr><th>Año fiscal</th><th>Estatus</th><th>Fecha pago</th><th>Monto</th></tr>
+                </thead>
+                <tbody>
+                    {% for ten in tenencias %}
+                    <tr>
+                        <td>{{ ten.anio_fiscal }}</td>
+                        <td>
+                            {% if ten.estatus_tenencia == "PAGADA" %}
+                            <span class="badge bg-success">Pagada</span>
+                            {% elif ten.estatus_tenencia == "PENDIENTE" %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% elif ten.estatus_tenencia == "NO_APLICA" %}
+                            <span class="badge bg-secondary">No aplica</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border">{{ ten.estatus_tenencia }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ten.fecha_pago|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {% if ten.monto_tenencia %}${{ ten.monto_tenencia|floatformat:2 }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-muted text-center py-2">Sin tenencias registradas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- ═══ TAB 4: DISPOSITIVOS ═══ -->
+    <div class="tab-pane fade" id="tab-dispositivos" role="tabpanel">
+
+        <!-- GPS -->
+        <h6 class="text-uppercase text-muted small fw-semibold mt-1 mb-2">
+            <i class="bi bi-broadcast me-1"></i>Instalaciones GPS
+        </h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr><th>IMEI</th><th>N° GPS</th><th>Instalación</th><th>Retiro</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                    {% for inst in instalaciones_gps %}
+                    <tr>
+                        <td><code>{{ inst.gps.imei }}</code></td>
+                        <td>{{ inst.gps.numero_gps|default:"—" }}</td>
+                        <td>{{ inst.fecha_instalacion|date:"d/m/Y"|default:"—" }}</td>
+                        <td>{{ inst.fecha_retiro|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {% if inst.es_actual %}
+                            <span class="badge bg-success">Instalado</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Retirado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-muted text-center py-2">Sin instalaciones GPS.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TAG -->
+        <h6 class="text-uppercase text-muted small fw-semibold mb-2">
+            <i class="bi bi-tag me-1"></i>TAGs de telepeaje
+        </h6>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr><th>Código TAG</th><th>Código corto</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                    {% for asig in asignaciones_tag %}
+                    <tr>
+                        <td><code>{{ asig.tag.codigo_tag }}</code></td>
+                        <td>{{ asig.tag.codigo_tag_corto|default:"—" }}</td>
+                        <td>{{ asig.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
+                        <td>{{ asig.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {% if asig.es_actual %}
+                            <span class="badge bg-success">Activo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-muted text-center py-2">Sin TAGs asignados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- ═══ TAB 5: ADEUDOS ═══ -->
+    <div class="tab-pane fade" id="tab-adeudos" role="tabpanel">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tipo</th><th>Monto</th><th>Estatus</th>
+                        <th>Consulta</th><th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ad in adeudos %}
+                    <tr>
+                        <td>{{ ad.tipo_adeudo }}</td>
+                        <td>
+                            {% if ad.monto_adeudo %}${{ ad.monto_adeudo|floatformat:2 }}{% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if ad.estatus_adeudo == "PENDIENTE" %}
+                            <span class="badge bg-danger">Pendiente</span>
+                            {% elif ad.estatus_adeudo == "PAGADO" %}
+                            <span class="badge bg-success">Pagado</span>
+                            {% elif ad.estatus_adeudo == "SIN_ADEUDO" %}
+                            <span class="badge bg-success">Sin adeudo</span>
+                            {% elif ad.estatus_adeudo == "CANCELADO" %}
+                            <span class="badge bg-secondary">Cancelado</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border">{{ ad.estatus_adeudo }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ad.fecha_consulta|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="text-muted small">{{ ad.observacion_adeudo|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <i class="bi bi-check2-circle text-success"></i>
+                                Sin adeudos registrados.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══ TAB 6: BITÁCORA / OBSERVACIONES ═══ -->
+    <div class="tab-pane fade" id="tab-observaciones" role="tabpanel">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr><th>Tipo</th><th>Observación</th><th>Fecha</th><th>Autor</th></tr>
+                </thead>
+                <tbody>
+                    {% for obs in observaciones %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-light text-dark border">{{ obs.tipo_observacion }}</span>
+                        </td>
+                        <td>{{ obs.texto_observacion }}</td>
+                        <td class="text-nowrap text-muted small">
+                            {{ obs.fecha_registro|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="text-muted small">
+                            {{ obs.autor_registro|default:"—" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="bi bi-journal-x"></i>
+                                Sin observaciones registradas.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if observaciones|length == 20 %}
+        <p class="text-muted small text-center mt-2">Mostrando las últimas 20 observaciones.</p>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}

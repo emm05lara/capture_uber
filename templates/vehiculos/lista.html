@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block title %}Vehículos{% endblock %}
+
+{% block content %}
+
+<!-- ─── Encabezado ─── -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Vehículos</h1>
+    <span class="text-muted small">
+        {{ page_obj.paginator.count }} resultado{% if page_obj.paginator.count != 1 %}s{% endif %}
+    </span>
+</div>
+
+<!-- ─── Filtros ─── -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label small mb-1">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control"
+                           placeholder="N° interno, placas, conductor, VIN, modelo…">
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Semáforo</label>
+                <select name="semaforo" class="form-select">
+                    <option value="">Todos</option>
+                    {% for s in semaforo_choices %}
+                    <option value="{{ s }}" {% if semaforo == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Estatus</label>
+                <select name="estatus" class="form-select">
+                    <option value="">Todos</option>
+                    {% for val, label in estatus_choices %}
+                    <option value="{{ val }}" {% if estatus == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+                {% if q or semaforo or estatus %}
+                <a href="{% url 'vehiculos:lista' %}" class="btn btn-outline-secondary" title="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── Filtros activos ─── -->
+{% if semaforo or estatus %}
+<div class="mb-2">
+    {% if semaforo %}
+    <span class="badge bg-secondary me-1">
+        Semáforo: {{ semaforo }}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if estatus %}estatus={{ estatus }}{% endif %}"
+           class="text-white text-decoration-none ms-1">×</a>
+    </span>
+    {% endif %}
+    {% if estatus %}
+    <span class="badge bg-secondary me-1">
+        Estatus: {{ estatus }}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if semaforo %}semaforo={{ semaforo }}{% endif %}"
+           class="text-white text-decoration-none ms-1">×</a>
+    </span>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ─── Tabla ─── -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-flotilla">
+            <thead class="table-dark">
+                <tr>
+                    <th>N° interno</th>
+                    <th>Placas</th>
+                    <th>Vehículo</th>
+                    <th>Color</th>
+                    <th>Conductor</th>
+                    <th>Plataforma</th>
+                    <th>Semáforo</th>
+                    <th>Estatus</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in page_obj %}
+                <tr onclick="window.location='{% url 'vehiculos:detalle' f.pk %}'">
+                    <td class="text-nowrap">
+                        {% if f.numero_interno %}
+                        <strong>{{ f.numero_interno }}</strong>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
+                        {% if f.placas_actuales %}
+                        <strong>{{ f.placas_actuales }}</strong>
+                        {% if f.entidad_emplacamiento_actual %}
+                        <br><small class="text-muted">{{ f.entidad_emplacamiento_actual }}</small>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted fst-italic">Sin placas</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ f.nombre_marca }} {{ f.nombre_modelo_comercial }}
+                        {% if f.version %}<span class="text-muted">{{ f.version }}</span>{% endif %}
+                        <br><small class="text-muted">{{ f.anio_modelo }} · <code>{{ f.numero_serie }}</code></small>
+                    </td>
+                    <td>{{ f.nombre_color }}</td>
+                    <td>{{ f.conductor|default:"<span class='text-muted'>—</span>" }}</td>
+                    <td>{{ f.plataforma|default:"<span class='text-muted'>—</span>" }}</td>
+                    <td>
+                        {% if f.semaforo_documental == "VERDE" %}
+                        <span class="badge bg-success">
+                            <span class="semaforo-dot semaforo-dot-verde"
+                                  style="border: 1px solid rgba(255,255,255,.5);"></span>
+                            VERDE
+                        </span>
+                        {% elif f.semaforo_documental == "AMARILLO" %}
+                        <span class="badge bg-warning text-dark">
+                            <span class="semaforo-dot semaforo-dot-amarillo"
+                                  style="border: 1px solid rgba(0,0,0,.2);"></span>
+                            AMARILLO
+                        </span>
+                        {% elif f.semaforo_documental == "ROJO" %}
+                        <span class="badge bg-danger">
+                            <span class="semaforo-dot semaforo-dot-rojo"
+                                  style="border: 1px solid rgba(255,255,255,.5);"></span>
+                            ROJO
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">N/D</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if f.estatus_unidad == "ACTIVA" %}
+                        <span class="badge bg-success">Activa</span>
+                        {% elif f.estatus_unidad == "TALLER" %}
+                        <span class="badge bg-warning text-dark">Taller</span>
+                        {% elif f.estatus_unidad == "SIN_ASIGNAR" %}
+                        <span class="badge bg-info text-dark">Sin asignar</span>
+                        {% elif f.estatus_unidad == "BAJA" %}
+                        <span class="badge bg-secondary">Baja</span>
+                        {% elif f.estatus_unidad == "SINIESTRADA" %}
+                        <span class="badge bg-danger">Siniestrada</span>
+                        {% elif f.estatus_unidad == "VENDIDA" %}
+                        <span class="badge bg-dark">Vendida</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ f.estatus_unidad }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <a href="{% url 'vehiculos:detalle' f.pk %}"
+                           class="btn btn-sm btn-outline-primary"
+                           onclick="event.stopPropagation()">
+                            Ver →
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9">
+                        <div class="empty-state">
+                            <i class="bi bi-search"></i>
+                            No se encontraron vehículos con los filtros seleccionados.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ─── Paginación ─── -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            de {{ page_obj.paginator.count }}
+        </small>
+        <nav aria-label="Paginación de vehículos">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                    {% if page_obj.has_previous %}
+                    <a class="page-link"
+                       href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        &laquo; Anterior
+                    </a>
+                    {% else %}
+                    <span class="page-link">&laquo; Anterior</span>
+                    {% endif %}
+                </li>
+
+                <li class="page-item disabled">
+                    <span class="page-link">
+                        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                    {% if page_obj.has_next %}
+                    <a class="page-link"
+                       href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        Siguiente &raquo;
+                    </a>
+                    {% else %}
+                    <span class="page-link">Siguiente &raquo;</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

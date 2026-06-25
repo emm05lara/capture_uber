@@ -1,0 +1,37 @@
+/* ─── Stat cards con acento lateral (dashboard) ─── */
+.card-stat {
+    border-left: 4px solid;
+    transition: box-shadow 0.15s ease;
+}
+.card-stat:hover { box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, .1); }
+
+/* ─── Tabla de vehículos: fila clickeable ─── */
+.table-flotilla tbody tr { transition: background-color 0.1s; }
+.table-flotilla tbody tr:hover { background-color: rgba(13, 110, 253, .04); cursor: pointer; }
+
+/* ─── Semáforo inline ─── */
+.semaforo-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+.semaforo-dot-verde    { background-color: #198754; }
+.semaforo-dot-amarillo { background-color: #ffc107; }
+.semaforo-dot-rojo     { background-color: #dc3545; }
+
+/* ─── Ficha vehículo: header ─── */
+.ficha-header { border-bottom: 3px solid #dee2e6; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+.ficha-vin { font-family: monospace; font-size: 0.875rem; }
+
+/* ─── Empty state placeholder ─── */
+.empty-state { padding: 3rem 1rem; text-align: center; color: #adb5bd; }
+.empty-state i { font-size: 2.5rem; display: block; margin-bottom: 0.75rem; }
+
+/* ─── Tab content padding ─── */
+.tab-content > .tab-pane { padding-top: 1.25rem; }
+
+/* ─── Ajuste footer si se agrega después ─── */
+body { min-height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; }

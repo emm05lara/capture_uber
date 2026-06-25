@@ -107,7 +107,14 @@ USE_TZ = True
 # ---------------------------------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# ---------------------------------------------------------------------------
+# Autenticación — redirecciones tras login/logout
+# ---------------------------------------------------------------------------
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 # ---------------------------------------------------------------------------
 # PK por defecto
