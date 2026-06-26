@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo vehículo{% endblock %}
+
+{% block content %}
+
+<!-- ─── Encabezado ─── -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+                <li class="breadcrumb-item active">Nuevo vehículo</li>
+            </ol>
+        </nav>
+        <h1 class="h3 mb-0">Registrar vehículo</h1>
+    </div>
+</div>
+
+<form method="post" novalidate>
+{% csrf_token %}
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 1 — Datos generales
+═══════════════════════════════════════════════ -->
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white">
+        <i class="bi bi-car-front me-2"></i>
+        <strong>Datos generales del vehículo</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+
+            <!-- Número interno -->
+            <div class="col-12 col-md-4">
+                <label for="{{ form.numero_interno.id_for_label }}" class="form-label">
+                    {{ form.numero_interno.label }}
+                    <span class="text-muted fw-normal small">(opcional)</span>
+                </label>
+                <input type="text"
+                       id="{{ form.numero_interno.id_for_label }}"
+                       name="{{ form.numero_interno.html_name }}"
+                       value="{{ form.numero_interno.value|default:'' }}"
+                       maxlength="50"
+                       placeholder="Ej. V-011, U-042…"
+                       class="form-control {% if form.numero_interno.errors %}is-invalid{% endif %}">
+                {% if form.numero_interno.errors %}
+                <div class="invalid-feedback">{{ form.numero_interno.errors|join:", " }}</div>
+                {% endif %}
+                {% if form.numero_interno.help_text %}
+                <div class="form-text">{{ form.numero_interno.help_text }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Marca y modelo (optgroup agrupado por marca) -->
+            <div class="col-12 col-md-8">
+                <label for="{{ form.modelo_vehiculo.id_for_label }}" class="form-label">
+                    {{ form.modelo_vehiculo.label }}
+                    <span class="text-danger">*</span>
+                </label>
+                <select id="{{ form.modelo_vehiculo.id_for_label }}"
+                        name="{{ form.modelo_vehiculo.html_name }}"
+                        class="form-select {% if form.modelo_vehiculo.errors %}is-invalid{% endif %}"
+                        required>
+                    <option value="">— Selecciona marca y modelo —</option>
+                    {% regroup form.modelo_vehiculo.field.queryset by marca as por_marca %}
+                    {% for grupo in por_marca %}
+                    <optgroup label="{{ grupo.grouper }}">
+                        {% for modelo in grupo.list %}
+                        <option value="{{ modelo.pk }}"
+                            {% if form.modelo_vehiculo.value|stringformat:"s" == modelo.pk|stringformat:"s" %}
+                            selected
+                            {% endif %}>
+                            {{ modelo.nombre_modelo_comercial }}{% if modelo.version %} {{ modelo.version }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+                {% if form.modelo_vehiculo.errors %}
+                <div class="invalid-feedback">{{ form.modelo_vehiculo.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Año modelo -->
+            <div class="col-6 col-md-3">
+                <label for="{{ form.anio_modelo.id_for_label }}" class="form-label">
+                    {{ form.anio_modelo.label }}
+                    <span class="text-danger">*</span>
+                </label>
+                <input type="number"
+                       id="{{ form.anio_modelo.id_for_label }}"
+                       name="{{ form.anio_modelo.html_name }}"
+                       value="{{ form.anio_modelo.value|default:'' }}"
+                       min="1990" max="2030"
+                       placeholder="2024"
+                       class="form-control {% if form.anio_modelo.errors %}is-invalid{% endif %}"
+                       required>
+                {% if form.anio_modelo.errors %}
+                <div class="invalid-feedback">{{ form.anio_modelo.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Color -->
+            <div class="col-6 col-md-3">
+                <label for="{{ form.color.id_for_label }}" class="form-label">
+                    {{ form.color.label }}
+                    <span class="text-danger">*</span>
+                </label>
+                <select id="{{ form.color.id_for_label }}"
+                        name="{{ form.color.html_name }}"
+                        class="form-select {% if form.color.errors %}is-invalid{% endif %}"
+                        required>
+                    <option value="">— Selecciona color —</option>
+                    {% for color in form.color.field.queryset %}
+                    <option value="{{ color.pk }}"
+                        {% if form.color.value|stringformat:"s" == color.pk|stringformat:"s" %}
+                        selected
+                        {% endif %}>
+                        {{ color.nombre_color }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if form.color.errors %}
+                <div class="invalid-feedback">{{ form.color.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Número de serie / VIN -->
+            <div class="col-12 col-md-4">
+                <label for="{{ form.numero_serie.id_for_label }}" class="form-label">
+                    {{ form.numero_serie.label }}
+                    <span class="text-danger">*</span>
+                </label>
+                <input type="text"
+                       id="{{ form.numero_serie.id_for_label }}"
+                       name="{{ form.numero_serie.html_name }}"
+                       value="{{ form.numero_serie.value|default:'' }}"
+                       maxlength="40"
+                       placeholder="3VWFE21C04M000001"
+                       style="text-transform: uppercase"
+                       class="form-control font-monospace {% if form.numero_serie.errors %}is-invalid{% endif %}"
+                       required>
+                {% if form.numero_serie.errors %}
+                <div class="invalid-feedback">{{ form.numero_serie.errors|join:", " }}</div>
+                {% endif %}
+                {% if form.numero_serie.help_text %}
+                <div class="form-text">{{ form.numero_serie.help_text }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Estatus -->
+            <div class="col-12 col-md-2">
+                <label for="{{ form.estatus_unidad.id_for_label }}" class="form-label">
+                    {{ form.estatus_unidad.label }}
+                    <span class="text-danger">*</span>
+                </label>
+                <select id="{{ form.estatus_unidad.id_for_label }}"
+                        name="{{ form.estatus_unidad.html_name }}"
+                        class="form-select {% if form.estatus_unidad.errors %}is-invalid{% endif %}"
+                        required>
+                    {% for val, label in form.estatus_unidad.field.choices %}
+                    <option value="{{ val }}"
+                        {% if form.estatus_unidad.value == val %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if form.estatus_unidad.errors %}
+                <div class="invalid-feedback">{{ form.estatus_unidad.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 2 — Placas actuales
+═══════════════════════════════════════════════ -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-card-text me-2"></i>
+        <strong>Placas actuales</strong>
+        <span class="text-muted fw-normal small ms-1">— opcional, puedes agregarlas después</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+
+            <!-- Placas -->
+            <div class="col-12 col-md-4">
+                <label for="{{ form.placas.id_for_label }}" class="form-label">
+                    {{ form.placas.label }}
+                </label>
+                <input type="text"
+                       id="{{ form.placas.id_for_label }}"
+                       name="{{ form.placas.html_name }}"
+                       value="{{ form.placas.value|default:'' }}"
+                       maxlength="20"
+                       placeholder="Ej. ABC-123"
+                       style="text-transform: uppercase"
+                       class="form-control {% if form.placas.errors %}is-invalid{% endif %}">
+                {% if form.placas.errors %}
+                <div class="invalid-feedback">{{ form.placas.errors|join:", " }}</div>
+                {% endif %}
+                {% if form.placas.help_text %}
+                <div class="form-text">{{ form.placas.help_text }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Entidad federativa -->
+            <div class="col-12 col-md-5">
+                <label for="{{ form.entidad_federativa.id_for_label }}" class="form-label">
+                    {{ form.entidad_federativa.label }}
+                </label>
+                <select id="{{ form.entidad_federativa.id_for_label }}"
+                        name="{{ form.entidad_federativa.html_name }}"
+                        class="form-select {% if form.entidad_federativa.errors %}is-invalid{% endif %}">
+                    <option value="">— Selecciona entidad —</option>
+                    {% for ef in form.entidad_federativa.field.queryset %}
+                    <option value="{{ ef.pk }}"
+                        {% if form.entidad_federativa.value|stringformat:"s" == ef.pk|stringformat:"s" %}
+                        selected
+                        {% endif %}>
+                        {{ ef.nombre_entidad }}{% if ef.abreviatura_entidad %} ({{ ef.abreviatura_entidad }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if form.entidad_federativa.errors %}
+                <div class="invalid-feedback">{{ form.entidad_federativa.errors|join:", " }}</div>
+                {% endif %}
+                {% if form.entidad_federativa.help_text %}
+                <div class="form-text">{{ form.entidad_federativa.help_text }}</div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     Errores generales del formulario
+═══════════════════════════════════════════════ -->
+{% if form.non_field_errors %}
+<div class="alert alert-danger">
+    {% for error in form.non_field_errors %}
+    <div><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════
+     Botones de acción
+═══════════════════════════════════════════════ -->
+<div class="d-flex gap-2">
+    <button type="submit" class="btn btn-dark">
+        <i class="bi bi-check-lg me-1"></i>Guardar vehículo
+    </button>
+    <a href="{% url 'vehiculos:lista' %}" class="btn btn-outline-secondary">
+        Cancelar
+    </a>
+</div>
+
+<p class="text-muted small mt-3">
+    <span class="text-danger">*</span> Campo obligatorio.
+    Los campos opcionales se pueden completar después desde el detalle del vehículo.
+</p>
+
+</form>
+
+{% endblock %}

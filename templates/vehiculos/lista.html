@@ -5,10 +5,15 @@
 
 <!-- ─── Encabezado ─── -->
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Vehículos</h1>
-    <span class="text-muted small">
-        {{ page_obj.paginator.count }} resultado{% if page_obj.paginator.count != 1 %}s{% endif %}
-    </span>
+    <div>
+        <h1 class="h3 mb-0">Vehículos</h1>
+        <span class="text-muted small">
+            {{ page_obj.paginator.count }} resultado{% if page_obj.paginator.count != 1 %}s{% endif %}
+        </span>
+    </div>
+    <a href="{% url 'vehiculos:nuevo' %}" class="btn btn-dark">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo vehículo
+    </a>
 </div>
 
 <!-- ─── Filtros ─── -->

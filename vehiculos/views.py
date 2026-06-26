@@ -1,12 +1,15 @@
 from urllib.parse import urlencode
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.db.models import Case, IntegerField, Q, Value, When
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import localdate
 
-from .models import Vehiculo, VwFichaVehiculo
+from .forms import NuevoVehiculoForm
+from .models import Emplacamiento, Vehiculo, VwFichaVehiculo
 
 
 @login_required
@@ -79,6 +82,45 @@ def lista_vehiculos(request):
         "estatus_choices": Vehiculo.EstatusUnidad.choices,
         "semaforo_choices": ["VERDE", "AMARILLO", "ROJO"],
     })
+
+
+@login_required
+def nuevo_vehiculo(request):
+    if request.method == "POST":
+        form = NuevoVehiculoForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    vehiculo = Vehiculo.objects.create(
+                        numero_interno=data["numero_interno"],
+                        modelo_vehiculo=data["modelo_vehiculo"],
+                        anio_modelo=data["anio_modelo"],
+                        color=data["color"],
+                        numero_serie=data["numero_serie"],
+                        estatus_unidad=data["estatus_unidad"],
+                    )
+                    if data.get("placas"):
+                        Emplacamiento.objects.create(
+                            vehiculo=vehiculo,
+                            placas=data["placas"],
+                            entidad_federativa=data["entidad_federativa"],
+                            fecha_inicio=localdate(),
+                        )
+                messages.success(
+                    request,
+                    f"Vehículo {vehiculo.numero_serie} registrado correctamente.",
+                )
+                return redirect("vehiculos:detalle", pk=vehiculo.pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo guardar el vehículo. "
+                    "El número de serie o las placas ya están registrados.",
+                )
+    else:
+        form = NuevoVehiculoForm()
+    return render(request, "vehiculos/nuevo.html", {"form": form})
 
 
 @login_required
