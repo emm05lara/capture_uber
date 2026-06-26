@@ -149,7 +149,7 @@
             <!-- Datos del vehículo -->
             <div class="col-md-4">
                 <div class="card h-100">
-                    <div class="card-header bg-light fw-semibold">
+                    <div class="card-header fw-semibold">
                         <i class="bi bi-car-front me-1"></i>Datos del vehículo
                     </div>
                     <div class="card-body">
@@ -186,7 +186,7 @@
             <!-- Conductor actual -->
             <div class="col-md-4">
                 <div class="card h-100">
-                    <div class="card-header bg-light fw-semibold">
+                    <div class="card-header fw-semibold">
                         <i class="bi bi-person me-1"></i>Conductor actual
                     </div>
                     <div class="card-body">
@@ -223,7 +223,7 @@
             <!-- Documentación actual (resumen) -->
             <div class="col-md-4">
                 <div class="card h-100">
-                    <div class="card-header bg-light fw-semibold">
+                    <div class="card-header fw-semibold">
                         <i class="bi bi-file-check me-1"></i>Documentación actual
                     </div>
                     <div class="card-body">
@@ -307,7 +307,7 @@
                         <td><code>{{ a.cuenta|default:"—" }}</code></td>
                         <td>
                             {% for app in a.apps_asignadas.all %}
-                            <span class="badge bg-light text-dark border me-1">
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border me-1">
                                 {{ app.app_transporte.nombre_app }}
                             </span>
                             {% empty %}—{% endfor %}
@@ -493,7 +493,7 @@
                             {% elif ten.estatus_tenencia == "NO_APLICA" %}
                             <span class="badge bg-secondary">No aplica</span>
                             {% else %}
-                            <span class="badge bg-light text-dark border">{{ ten.estatus_tenencia }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ ten.estatus_tenencia }}</span>
                             {% endif %}
                         </td>
                         <td>{{ ten.fecha_pago|date:"d/m/Y"|default:"—" }}</td>
@@ -604,7 +604,7 @@
                             {% elif ad.estatus_adeudo == "CANCELADO" %}
                             <span class="badge bg-secondary">Cancelado</span>
                             {% else %}
-                            <span class="badge bg-light text-dark border">{{ ad.estatus_adeudo }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ ad.estatus_adeudo }}</span>
                             {% endif %}
                         </td>
                         <td>{{ ad.fecha_consulta|date:"d/m/Y"|default:"—" }}</td>
@@ -636,7 +636,7 @@
                     {% for obs in observaciones %}
                     <tr>
                         <td>
-                            <span class="badge bg-light text-dark border">{{ obs.tipo_observacion }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ obs.tipo_observacion }}</span>
                         </td>
                         <td>{{ obs.texto_observacion }}</td>
                         <td class="text-nowrap text-muted small">
