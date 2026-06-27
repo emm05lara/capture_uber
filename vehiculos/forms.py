@@ -1,7 +1,7 @@
 from django import forms
 
 from catalogos.models import Color, EntidadFederativa, ModeloVehiculo
-from .models import Vehiculo
+from .models import Emplacamiento, Vehiculo
 
 
 class NuevoVehiculoForm(forms.Form):
@@ -83,3 +83,98 @@ class NuevoVehiculoForm(forms.Form):
             )
         cleaned["placas"] = placas
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Editar datos básicos de un vehículo existente (VIN es inmutable, no aparece)
+# ---------------------------------------------------------------------------
+
+class EditarVehiculoForm(forms.Form):
+    def __init__(self, *args, vehiculo_pk=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vehiculo_pk = vehiculo_pk
+
+    numero_interno = forms.CharField(
+        label="Número interno",
+        max_length=50,
+        required=False,
+        help_text="Clave o folio interno de tu empresa. Deja vacío si no aplica.",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. V-011, U-042…"}),
+    )
+    modelo_vehiculo = forms.ModelChoiceField(
+        queryset=ModeloVehiculo.objects.select_related("marca").order_by(
+            "marca__nombre_marca", "nombre_modelo_comercial"
+        ),
+        label="Marca y modelo",
+        empty_label="— Selecciona marca y modelo —",
+    )
+    anio_modelo = forms.IntegerField(
+        label="Año modelo",
+        min_value=1990,
+        max_value=2030,
+        widget=forms.NumberInput(attrs={"placeholder": "Ej. 2024"}),
+    )
+    color = forms.ModelChoiceField(
+        queryset=Color.objects.all(),
+        label="Color",
+        empty_label="— Selecciona color —",
+    )
+    estatus_unidad = forms.ChoiceField(
+        label="Estatus del vehículo",
+        choices=Vehiculo.EstatusUnidad.choices,
+    )
+
+    def clean_numero_interno(self):
+        num = (self.cleaned_data.get("numero_interno") or "").strip() or None
+        if num:
+            qs = Vehiculo.objects.filter(numero_interno=num)
+            if self.vehiculo_pk:
+                qs = qs.exclude(pk=self.vehiculo_pk)
+            if qs.exists():
+                raise forms.ValidationError(
+                    "Ya existe un vehículo con este número interno. Usa uno diferente."
+                )
+        return num
+
+
+# ---------------------------------------------------------------------------
+# Registrar nueva placa (cierra la placa activa anterior en la vista)
+# ---------------------------------------------------------------------------
+
+class NuevaPlacaForm(forms.Form):
+    def __init__(self, *args, vehiculo=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vehiculo = vehiculo
+
+    placas = forms.CharField(
+        label="Placas",
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            "placeholder": "Ej. ABC-123-D",
+            "style": "text-transform: uppercase",
+            "autofocus": True,
+        }),
+    )
+    entidad_federativa = forms.ModelChoiceField(
+        queryset=EntidadFederativa.objects.all(),
+        label="Entidad federativa",
+        empty_label="— Selecciona entidad —",
+        help_text="Estado en el que están registradas estas placas.",
+    )
+    fecha_inicio = forms.DateField(
+        label="Fecha de inicio",
+        required=False,
+        help_text="Deja vacío para usar la fecha de hoy.",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+    def clean_placas(self):
+        placas = self.cleaned_data["placas"].upper().strip()
+        qs = Emplacamiento.objects.filter(placas__iexact=placas, fecha_fin__isnull=True)
+        if self.vehiculo:
+            qs = qs.exclude(vehiculo=self.vehiculo)
+        if qs.exists():
+            raise forms.ValidationError(
+                "Estas placas ya están asignadas como activas en otro vehículo."
+            )
+        return placas

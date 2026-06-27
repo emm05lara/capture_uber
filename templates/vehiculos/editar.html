@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% block title %}Editar — {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Editar datos</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+
+        <!-- VIN (solo lectura — no se edita) -->
+        <div class="alert alert-secondary d-flex align-items-center gap-2 mb-3" role="alert">
+            <i class="bi bi-shield-lock-fill fs-5"></i>
+            <div>
+                <strong>VIN / Número de serie:</strong>
+                <code class="ms-1 fs-6">{{ vehiculo.numero_serie }}</code>
+                <span class="text-muted small ms-2">— El VIN es inmutable y no puede modificarse.</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-pencil-square me-1"></i>Editar datos del vehículo
+            </div>
+            <div class="card-body">
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row g-3">
+
+                        <!-- Número interno -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.numero_interno.id_for_label }}" class="form-label">
+                                {{ form.numero_interno.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.numero_interno.html_name }}"
+                                   id="{{ form.numero_interno.id_for_label }}"
+                                   value="{{ form.numero_interno.value|default:'' }}"
+                                   maxlength="50"
+                                   class="form-control {% if form.numero_interno.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. V-011, U-042…">
+                            {% if form.numero_interno.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.numero_interno.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% elif form.numero_interno.help_text %}
+                            <div class="form-text">{{ form.numero_interno.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Año modelo -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.anio_modelo.id_for_label }}" class="form-label">
+                                {{ form.anio_modelo.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="number"
+                                   name="{{ form.anio_modelo.html_name }}"
+                                   id="{{ form.anio_modelo.id_for_label }}"
+                                   value="{{ form.anio_modelo.value|default:'' }}"
+                                   min="1990" max="2030"
+                                   class="form-control {% if form.anio_modelo.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. 2024">
+                            {% if form.anio_modelo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.anio_modelo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Marca y modelo (optgroup) -->
+                        <div class="col-12">
+                            <label for="id_modelo_vehiculo" class="form-label">
+                                {{ form.modelo_vehiculo.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="modelo_vehiculo"
+                                    id="id_modelo_vehiculo"
+                                    class="form-select {% if form.modelo_vehiculo.errors %}is-invalid{% endif %}">
+                                <option value="">— Selecciona marca y modelo —</option>
+                                {% regroup form.modelo_vehiculo.field.queryset by marca as por_marca %}
+                                {% for grupo in por_marca %}
+                                <optgroup label="{{ grupo.grouper }}">
+                                    {% for m in grupo.list %}
+                                    <option value="{{ m.pk }}"
+                                        {% if form.modelo_vehiculo.value == m.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ m.nombre_modelo_comercial }}{% if m.version %} {{ m.version }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                            {% if form.modelo_vehiculo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.modelo_vehiculo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Color -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.color.id_for_label }}" class="form-label">
+                                {{ form.color.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="color"
+                                    id="{{ form.color.id_for_label }}"
+                                    class="form-select {% if form.color.errors %}is-invalid{% endif %}">
+                                <option value="">— Selecciona color —</option>
+                                {% for c in form.color.field.queryset %}
+                                <option value="{{ c.pk }}"
+                                    {% if form.color.value == c.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ c.nombre_color }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.color.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.color.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Estatus -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.estatus_unidad.id_for_label }}" class="form-label">
+                                {{ form.estatus_unidad.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="estatus_unidad"
+                                    id="{{ form.estatus_unidad.id_for_label }}"
+                                    class="form-select {% if form.estatus_unidad.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.estatus_unidad.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.estatus_unidad.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.estatus_unidad.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.estatus_unidad.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div><!-- /row -->
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Guardar cambios
+                        </button>
+                        <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

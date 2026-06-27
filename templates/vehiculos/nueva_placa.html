@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Nueva placa — {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Registrar nueva placa</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <!-- Información del vehículo -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-1">
+                            {% if vehiculo.numero_interno %}
+                            Unidad <strong>{{ vehiculo.numero_interno }}</strong> —
+                            {% endif %}
+                            {{ vehiculo.modelo_vehiculo.marca }} {{ vehiculo.modelo_vehiculo.nombre_modelo_comercial }}
+                            {{ vehiculo.anio_modelo }}
+                        </h5>
+                        <p class="mb-0 text-muted small">
+                            VIN: <code>{{ vehiculo.numero_serie }}</code>
+                            &nbsp;|&nbsp; Color: {{ vehiculo.color.nombre_color }}
+                        </p>
+                    </div>
+                    {% if emplacamiento_actual %}
+                    <div class="text-end">
+                        <span class="text-muted small d-block">Placas actuales</span>
+                        <span class="badge bg-primary fs-6">{{ emplacamiento_actual.placas }}</span>
+                        <span class="text-muted small d-block">{{ emplacamiento_actual.entidad_federativa }}</span>
+                    </div>
+                    {% else %}
+                    <span class="badge bg-secondary">Sin placas actuales</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if emplacamiento_actual %}
+        <div class="alert alert-info d-flex gap-2" role="alert">
+            <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+            <div>
+                Las placas actuales <strong>{{ emplacamiento_actual.placas }}</strong>
+                quedarán como historial (se registrará la fecha de cierre automáticamente).
+                Las nuevas placas pasarán a ser las activas.
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Formulario -->
+        <div class="card">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-credit-card me-1"></i>Datos de las nuevas placas
+            </div>
+            <div class="card-body">
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row g-3">
+
+                        <!-- Placas -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.placas.id_for_label }}" class="form-label">
+                                {{ form.placas.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.placas.html_name }}"
+                                   id="{{ form.placas.id_for_label }}"
+                                   value="{{ form.placas.value|default:'' }}"
+                                   maxlength="20"
+                                   class="form-control {% if form.placas.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. ABC-123-D"
+                                   style="text-transform: uppercase"
+                                   autofocus>
+                            {% if form.placas.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.placas.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Fecha de inicio -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">
+                                {{ form.fecha_inicio.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_inicio.html_name }}"
+                                   id="{{ form.fecha_inicio.id_for_label }}"
+                                   value="{{ form.fecha_inicio.value|default:'' }}"
+                                   class="form-control {% if form.fecha_inicio.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_inicio.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_inicio.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% elif form.fecha_inicio.help_text %}
+                            <div class="form-text">{{ form.fecha_inicio.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Entidad federativa -->
+                        <div class="col-12">
+                            <label for="{{ form.entidad_federativa.id_for_label }}" class="form-label">
+                                {{ form.entidad_federativa.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="entidad_federativa"
+                                    id="{{ form.entidad_federativa.id_for_label }}"
+                                    class="form-select {% if form.entidad_federativa.errors %}is-invalid{% endif %}">
+                                <option value="">— Selecciona entidad —</option>
+                                {% for ef in form.entidad_federativa.field.queryset %}
+                                <option value="{{ ef.pk }}"
+                                    {% if form.entidad_federativa.value == ef.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ ef }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.entidad_federativa.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.entidad_federativa.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% elif form.entidad_federativa.help_text %}
+                            <div class="form-text">{{ form.entidad_federativa.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                    </div><!-- /row -->
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Registrar placas
+                        </button>
+                        <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

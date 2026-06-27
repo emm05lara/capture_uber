@@ -7,8 +7,9 @@ from django.db import IntegrityError, transaction
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import localdate
+from django.views.decorators.http import require_POST
 
-from .forms import NuevoVehiculoForm
+from .forms import EditarVehiculoForm, NuevaPlacaForm, NuevoVehiculoForm
 from .models import Emplacamiento, Vehiculo, VwFichaVehiculo
 
 
@@ -121,6 +122,109 @@ def nuevo_vehiculo(request):
     else:
         form = NuevoVehiculoForm()
     return render(request, "vehiculos/nuevo.html", {"form": form})
+
+
+@login_required
+def editar_vehiculo(request, pk):
+    vehiculo = get_object_or_404(
+        Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
+        pk=pk,
+    )
+    if request.method == "POST":
+        form = EditarVehiculoForm(request.POST, vehiculo_pk=pk)
+        if form.is_valid():
+            data = form.cleaned_data
+            vehiculo.numero_interno = data["numero_interno"]
+            vehiculo.modelo_vehiculo = data["modelo_vehiculo"]
+            vehiculo.anio_modelo = data["anio_modelo"]
+            vehiculo.color = data["color"]
+            vehiculo.estatus_unidad = data["estatus_unidad"]
+            try:
+                vehiculo.save()
+                messages.success(request, "Datos del vehículo actualizados correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo guardar. El número interno ya está en uso por otro vehículo.",
+                )
+    else:
+        form = EditarVehiculoForm(
+            vehiculo_pk=pk,
+            initial={
+                "numero_interno": vehiculo.numero_interno or "",
+                "modelo_vehiculo": vehiculo.modelo_vehiculo,
+                "anio_modelo": vehiculo.anio_modelo,
+                "color": vehiculo.color,
+                "estatus_unidad": vehiculo.estatus_unidad,
+            },
+        )
+    return render(request, "vehiculos/editar.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+    })
+
+
+@login_required
+def nueva_placa(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    emplacamiento_actual = vehiculo.emplacamiento_actual
+
+    if request.method == "POST":
+        form = NuevaPlacaForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            fecha_inicio = data.get("fecha_inicio") or localdate()
+            try:
+                with transaction.atomic():
+                    if emplacamiento_actual:
+                        Emplacamiento.objects.filter(
+                            vehiculo=vehiculo, fecha_fin__isnull=True
+                        ).update(fecha_fin=fecha_inicio)
+                    Emplacamiento.objects.create(
+                        vehiculo=vehiculo,
+                        placas=data["placas"],
+                        entidad_federativa=data["entidad_federativa"],
+                        fecha_inicio=fecha_inicio,
+                    )
+                messages.success(
+                    request,
+                    f"Placas {data['placas']} registradas correctamente.",
+                )
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudieron registrar las placas. "
+                    "Verifica que no estén asignadas a otro vehículo activo.",
+                )
+    else:
+        form = NuevaPlacaForm(vehiculo=vehiculo)
+
+    return render(request, "vehiculos/nueva_placa.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "emplacamiento_actual": emplacamiento_actual,
+    })
+
+
+@login_required
+@require_POST
+def cambiar_estatus(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    nuevo_estatus = request.POST.get("estatus_unidad", "").strip()
+    if nuevo_estatus not in Vehiculo.EstatusUnidad.values:
+        messages.error(request, "Estatus no válido.")
+    elif nuevo_estatus == vehiculo.estatus_unidad:
+        messages.info(request, "El estatus no cambió.")
+    else:
+        vehiculo.estatus_unidad = nuevo_estatus
+        vehiculo.save(update_fields=["estatus_unidad", "fecha_actualizacion"])
+        messages.success(
+            request,
+            f"Estatus cambiado a {vehiculo.get_estatus_unidad_display()}.",
+        )
+    return redirect("vehiculos:detalle", pk=pk)
 
 
 @login_required
