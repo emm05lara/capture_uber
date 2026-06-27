@@ -56,9 +56,15 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.resolver_match.url_name in 'lista detalle' %}active{% endif %}"
+                    <a class="nav-link {% if request.resolver_match.url_name in 'lista detalle nuevo' and request.resolver_match.app_name == 'vehiculos' %}active{% endif %}"
                        href="{% url 'vehiculos:lista' %}">
                         <i class="bi bi-car-front me-1"></i>Vehículos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.app_name == 'actores' %}active{% endif %}"
+                       href="{% url 'actores:conductores_lista' %}">
+                        <i class="bi bi-people me-1"></i>Conductores
                     </a>
                 </li>
             </ul>

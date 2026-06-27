@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% block title %}Conductores{% endblock %}
+
+{% block content %}
+
+<!-- ─── Encabezado ─── -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Conductores</h1>
+        <span class="text-muted small">
+            {{ page_obj.paginator.count }} conductor{% if page_obj.paginator.count != 1 %}es{% endif %}
+        </span>
+    </div>
+    <a href="{% url 'actores:conductor_nuevo' %}" class="btn btn-dark">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo conductor
+    </a>
+</div>
+
+<!-- ─── Filtros ─── -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control"
+                           placeholder="Nombre, teléfono o número de licencia…">
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Estatus</label>
+                <select name="estatus" class="form-select">
+                    <option value="">Todos</option>
+                    {% for val, etiqueta in estatus_choices %}
+                    <option value="{{ val }}" {% if estatus == val %}selected{% endif %}>
+                        {{ etiqueta }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+                {% if q or estatus %}
+                <a href="{% url 'actores:conductores_lista' %}" class="btn btn-outline-secondary" title="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── Filtros activos ─── -->
+{% if q or estatus %}
+<div class="mb-2">
+    {% if q %}
+    <span class="badge bg-secondary me-1">
+        Búsqueda: "{{ q }}"
+        <a href="?{% if estatus %}estatus={{ estatus }}{% endif %}"
+           class="text-white text-decoration-none ms-1">×</a>
+    </span>
+    {% endif %}
+    {% if estatus %}
+    <span class="badge bg-secondary me-1">
+        Estatus: {{ estatus }}
+        <a href="?{% if q %}q={{ q }}{% endif %}"
+           class="text-white text-decoration-none ms-1">×</a>
+    </span>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ─── Tabla ─── -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-flotilla">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Teléfono</th>
+                    <th>Licencia</th>
+                    <th>Vencimiento</th>
+                    <th>Estatus</th>
+                    <th>Vehículo actual</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conductor in page_obj %}
+                <tr onclick="window.location='{% url 'actores:conductor_detalle' conductor.pk %}'">
+                    <td>
+                        <strong>{{ conductor.nombre_completo }}</strong>
+                        {% if conductor.correo %}
+                        <br><small class="text-muted">{{ conductor.correo }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
+                        {{ conductor.telefono|default:"<span class='text-muted'>—</span>" }}
+                    </td>
+                    <td class="text-nowrap">
+                        {% if conductor.numero_licencia %}
+                        <code>{{ conductor.numero_licencia }}</code>
+                        {% if conductor.tipo_licencia %}
+                        <br><small class="text-muted">Tipo {{ conductor.tipo_licencia }}</small>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
+                        {% if conductor.fecha_vencimiento_licencia %}
+                            {% if conductor.licencia_vigente == False %}
+                            <span class="text-danger fw-semibold">
+                                {{ conductor.fecha_vencimiento_licencia|date:"d/m/Y" }}
+                                <i class="bi bi-exclamation-circle-fill ms-1"></i>
+                            </span>
+                            {% else %}
+                            {{ conductor.fecha_vencimiento_licencia|date:"d/m/Y" }}
+                            {% endif %}
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if conductor.estatus_conductor == "ACTIVO" %}
+                        <span class="badge bg-success">Activo</span>
+                        {% elif conductor.estatus_conductor == "INACTIVO" %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                        {% elif conductor.estatus_conductor == "BLOQUEADO" %}
+                        <span class="badge bg-warning text-dark">Bloqueado</span>
+                        {% elif conductor.estatus_conductor == "BAJA" %}
+                        <span class="badge bg-danger">Baja</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ conductor.estatus_conductor }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if conductor.asignacion_activa %}
+                        {% with a=conductor.asignacion_activa.0 %}
+                        <a href="{% url 'vehiculos:detalle' a.vehiculo.pk %}"
+                           class="text-decoration-none"
+                           onclick="event.stopPropagation()">
+                            <strong>{{ a.vehiculo.numero_interno|default:a.vehiculo.numero_serie }}</strong>
+                        </a>
+                        {% endwith %}
+                        {% else %}
+                        <span class="text-muted fst-italic small">Sin asignar</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <a href="{% url 'actores:conductor_editar' conductor.pk %}"
+                           class="btn btn-sm btn-outline-secondary me-1"
+                           onclick="event.stopPropagation()"
+                           title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'actores:conductor_detalle' conductor.pk %}"
+                           class="btn btn-sm btn-outline-primary"
+                           onclick="event.stopPropagation()">
+                            Ver →
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="bi bi-people"></i>
+                            {% if q or estatus %}
+                            No se encontraron conductores con los filtros seleccionados.
+                            {% else %}
+                            No hay conductores registrados.
+                            <a href="{% url 'actores:conductor_nuevo' %}" class="d-block mt-2">
+                                Registrar el primero
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ─── Paginación ─── -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            de {{ page_obj.paginator.count }}
+        </small>
+        <nav aria-label="Paginación de conductores">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                    {% if page_obj.has_previous %}
+                    <a class="page-link"
+                       href="?{% if q %}q={{ q }}&{% endif %}{% if estatus %}estatus={{ estatus }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        &laquo; Anterior
+                    </a>
+                    {% else %}
+                    <span class="page-link">&laquo; Anterior</span>
+                    {% endif %}
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                    {% if page_obj.has_next %}
+                    <a class="page-link"
+                       href="?{% if q %}q={{ q }}&{% endif %}{% if estatus %}estatus={{ estatus }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        Siguiente &raquo;
+                    </a>
+                    {% else %}
+                    <span class="page-link">Siguiente &raquo;</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

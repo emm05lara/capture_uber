@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% block title %}{{ conductor.nombre_completo }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'actores:conductores_lista' %}">Conductores</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {{ conductor.nombre_completo }}
+        </li>
+    </ol>
+</nav>
+
+<!-- ─── Header ─── -->
+<div class="card mb-4 ficha-header">
+    <div class="card-body">
+        <div class="row align-items-start">
+            <div class="col">
+                <h2 class="h3 mb-1">{{ conductor.nombre_completo }}</h2>
+
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    {% if conductor.telefono %}
+                    <span class="text-muted small">
+                        <i class="bi bi-telephone me-1"></i>{{ conductor.telefono }}
+                    </span>
+                    {% endif %}
+                    {% if conductor.correo %}
+                    <span class="text-muted small">
+                        <i class="bi bi-envelope me-1"></i>{{ conductor.correo }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    {% if conductor.estatus_conductor == "ACTIVO" %}
+                    <span class="badge bg-success fs-6">Activo</span>
+                    {% elif conductor.estatus_conductor == "INACTIVO" %}
+                    <span class="badge bg-secondary fs-6">Inactivo</span>
+                    {% elif conductor.estatus_conductor == "BLOQUEADO" %}
+                    <span class="badge bg-warning text-dark fs-6">Bloqueado</span>
+                    {% elif conductor.estatus_conductor == "BAJA" %}
+                    <span class="badge bg-danger fs-6">Baja</span>
+                    {% endif %}
+
+                    {% if conductor.fecha_vencimiento_licencia %}
+                        {% if conductor.licencia_vigente == False %}
+                        <span class="badge bg-danger fs-6">
+                            <i class="bi bi-exclamation-circle me-1"></i>Licencia vencida
+                        </span>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if asignacion_actual %}
+                    <span class="badge bg-primary fs-6">
+                        <i class="bi bi-car-front me-1"></i>
+                        Vehículo: {{ asignacion_actual.vehiculo.numero_interno|default:asignacion_actual.vehiculo.numero_serie }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="col-auto d-flex flex-column flex-sm-row gap-2 mt-2 mt-sm-0">
+                <a href="{% url 'actores:conductor_editar' conductor.pk %}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil me-1"></i>Editar
+                </a>
+                <a href="{% url 'actores:conductores_lista' %}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Tabs ─── -->
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" data-bs-toggle="tab"
+                data-bs-target="#tab-datos" type="button" role="tab">
+            <i class="bi bi-person me-1"></i>Datos generales
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tab-asignaciones" type="button" role="tab">
+            <i class="bi bi-car-front me-1"></i>Asignaciones
+            {% if asignacion_actual %}
+            <span class="badge bg-success ms-1">Activa</span>
+            {% endif %}
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- ═══ TAB 1: DATOS GENERALES ═══ -->
+    <div class="tab-pane fade show active" id="tab-datos" role="tabpanel">
+        <div class="row g-3">
+
+            <!-- Datos personales -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold">
+                        <i class="bi bi-person-vcard me-1"></i>Datos personales
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0 small">
+                            <dt class="col-5 text-muted">Nombre</dt>
+                            <dd class="col-7 fw-semibold">{{ conductor.nombre_completo }}</dd>
+
+                            <dt class="col-5 text-muted">Teléfono</dt>
+                            <dd class="col-7">{{ conductor.telefono|default:"—" }}</dd>
+
+                            <dt class="col-5 text-muted">Correo</dt>
+                            <dd class="col-7">
+                                {% if conductor.correo %}
+                                <a href="mailto:{{ conductor.correo }}" class="text-decoration-none">
+                                    {{ conductor.correo }}
+                                </a>
+                                {% else %}—{% endif %}
+                            </dd>
+
+                            <dt class="col-5 text-muted">Estatus</dt>
+                            <dd class="col-7">{{ conductor.get_estatus_conductor_display }}</dd>
+
+                            {% if conductor.curp %}
+                            <dt class="col-5 text-muted">CURP</dt>
+                            <dd class="col-7"><code>{{ conductor.curp }}</code></dd>
+                            {% endif %}
+
+                            <dt class="col-5 text-muted">Registrado</dt>
+                            <dd class="col-7">{{ conductor.fecha_creacion|date:"d/m/Y" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Licencia de conducir -->
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold">
+                        <i class="bi bi-card-text me-1"></i>Licencia de conducir
+                    </div>
+                    <div class="card-body">
+                        {% if conductor.numero_licencia or conductor.fecha_vencimiento_licencia %}
+                        <dl class="row mb-0 small">
+                            {% if conductor.numero_licencia %}
+                            <dt class="col-6 text-muted">Número</dt>
+                            <dd class="col-6"><code>{{ conductor.numero_licencia }}</code></dd>
+                            {% endif %}
+
+                            {% if conductor.tipo_licencia %}
+                            <dt class="col-6 text-muted">Tipo</dt>
+                            <dd class="col-6">{{ conductor.tipo_licencia }} — {{ conductor.get_tipo_licencia_display }}</dd>
+                            {% endif %}
+
+                            {% if conductor.fecha_vencimiento_licencia %}
+                            <dt class="col-6 text-muted">Vencimiento</dt>
+                            <dd class="col-6">
+                                <span class="{% if conductor.licencia_vigente == False %}text-danger fw-semibold{% endif %}">
+                                    {{ conductor.fecha_vencimiento_licencia|date:"d/m/Y" }}
+                                    {% if conductor.licencia_vigente == False %}
+                                    <i class="bi bi-exclamation-circle-fill ms-1"></i>
+                                    <br><small>Licencia vencida</small>
+                                    {% elif conductor.licencia_vigente %}
+                                    <br><small class="text-muted">Vigente</small>
+                                    {% endif %}
+                                </span>
+                            </dd>
+                            {% endif %}
+                        </dl>
+                        {% else %}
+                        <div class="empty-state py-3">
+                            <i class="bi bi-card-text"></i>
+                            <span class="d-block small">Sin información de licencia.</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vehículo actual -->
+            {% if asignacion_actual %}
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header fw-semibold text-primary">
+                        <i class="bi bi-car-front me-1"></i>Vehículo asignado actualmente
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <dl class="row mb-0 small">
+                                    <dt class="col-4 text-muted">Unidad</dt>
+                                    <dd class="col-8 fw-semibold">
+                                        {{ asignacion_actual.vehiculo.numero_interno|default:asignacion_actual.vehiculo.numero_serie }}
+                                    </dd>
+
+                                    <dt class="col-4 text-muted">Modelo</dt>
+                                    <dd class="col-8">
+                                        {{ asignacion_actual.vehiculo.modelo_vehiculo.marca }}
+                                        {{ asignacion_actual.vehiculo.modelo_vehiculo.nombre_modelo_comercial }}
+                                        {{ asignacion_actual.vehiculo.anio_modelo }}
+                                    </dd>
+
+                                    {% if asignacion_actual.plataforma %}
+                                    <dt class="col-4 text-muted">Plataforma</dt>
+                                    <dd class="col-8">{{ asignacion_actual.plataforma }}</dd>
+                                    {% endif %}
+
+                                    {% if asignacion_actual.socio %}
+                                    <dt class="col-4 text-muted">Socio</dt>
+                                    <dd class="col-8">{{ asignacion_actual.socio }}</dd>
+                                    {% endif %}
+
+                                    {% if asignacion_actual.fecha_inicio %}
+                                    <dt class="col-4 text-muted">Desde</dt>
+                                    <dd class="col-8">{{ asignacion_actual.fecha_inicio|date:"d/m/Y" }}</dd>
+                                    {% endif %}
+                                </dl>
+                            </div>
+                            <div class="col-auto">
+                                <a href="{% url 'vehiculos:detalle' asignacion_actual.vehiculo.pk %}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    Ver ficha del vehículo →
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- ═══ TAB 2: ASIGNACIONES ═══ -->
+    <div class="tab-pane fade" id="tab-asignaciones" role="tabpanel">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Vehículo</th>
+                        <th>Plataforma</th>
+                        <th>Socio</th>
+                        <th>Cuenta</th>
+                        <th>Apps</th>
+                        <th>Inicio</th>
+                        <th>Fin</th>
+                        <th>Estatus</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in asignaciones %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'vehiculos:detalle' a.vehiculo.pk %}"
+                               class="fw-semibold text-decoration-none">
+                                {{ a.vehiculo.numero_interno|default:a.vehiculo.numero_serie }}
+                            </a>
+                            <br>
+                            <small class="text-muted">
+                                {{ a.vehiculo.modelo_vehiculo.marca }}
+                                {{ a.vehiculo.modelo_vehiculo.nombre_modelo_comercial }}
+                            </small>
+                        </td>
+                        <td>{{ a.plataforma|default:"—" }}</td>
+                        <td>{{ a.socio|default:"—" }}</td>
+                        <td><code>{{ a.cuenta|default:"—" }}</code></td>
+                        <td>
+                            {% for app in a.apps_asignadas.all %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border me-1">
+                                {{ app.app_transporte.nombre_app }}
+                            </span>
+                            {% empty %}—{% endfor %}
+                        </td>
+                        <td class="text-nowrap">{{ a.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="text-nowrap">{{ a.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {% if a.es_actual %}
+                            <span class="badge bg-success">Activa</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Finalizada</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="bi bi-car-front"></i>
+                                Sin asignaciones de vehículo registradas.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

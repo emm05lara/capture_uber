@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'actores:conductores_lista' %}">Conductores</a>
+        </li>
+        {% if not es_nuevo and conductor %}
+        <li class="breadcrumb-item">
+            <a href="{% url 'actores:conductor_detalle' conductor.pk %}">
+                {{ conductor.nombre_completo }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Editar</li>
+        {% else %}
+        <li class="breadcrumb-item active" aria-current="page">Nuevo conductor</li>
+        {% endif %}
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- ─── Datos personales ─── -->
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-person me-1"></i>Datos personales
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <!-- Nombre completo -->
+                        <div class="col-12">
+                            <label for="{{ form.nombre_completo.id_for_label }}" class="form-label">
+                                {{ form.nombre_completo.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.nombre_completo.html_name }}"
+                                   id="{{ form.nombre_completo.id_for_label }}"
+                                   value="{{ form.nombre_completo.value|default:'' }}"
+                                   maxlength="150"
+                                   class="form-control {% if form.nombre_completo.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. Juan García López"
+                                   {% if es_nuevo %}autofocus{% endif %}>
+                            {% if form.nombre_completo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.nombre_completo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Teléfono -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.telefono.id_for_label }}" class="form-label">
+                                {{ form.telefono.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.telefono.html_name }}"
+                                   id="{{ form.telefono.id_for_label }}"
+                                   value="{{ form.telefono.value|default:'' }}"
+                                   maxlength="30"
+                                   class="form-control {% if form.telefono.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. 55 1234 5678">
+                            {% if form.telefono.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.telefono.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Correo -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.correo.id_for_label }}" class="form-label">
+                                {{ form.correo.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="email"
+                                   name="{{ form.correo.html_name }}"
+                                   id="{{ form.correo.id_for_label }}"
+                                   value="{{ form.correo.value|default:'' }}"
+                                   maxlength="120"
+                                   class="form-control {% if form.correo.errors %}is-invalid{% endif %}"
+                                   placeholder="conductor@empresa.com">
+                            {% if form.correo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.correo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Estatus -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.estatus_conductor.id_for_label }}" class="form-label">
+                                {{ form.estatus_conductor.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.estatus_conductor.html_name }}"
+                                    id="{{ form.estatus_conductor.id_for_label }}"
+                                    class="form-select {% if form.estatus_conductor.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.estatus_conductor.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.estatus_conductor.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.estatus_conductor.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.estatus_conductor.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── Licencia de conducir ─── -->
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-card-text me-1"></i>Licencia de conducir
+                    <span class="text-muted fw-normal small ms-1">(opcional)</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <!-- Número de licencia -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.numero_licencia.id_for_label }}" class="form-label">
+                                {{ form.numero_licencia.label }}
+                            </label>
+                            <input type="text"
+                                   name="{{ form.numero_licencia.html_name }}"
+                                   id="{{ form.numero_licencia.id_for_label }}"
+                                   value="{{ form.numero_licencia.value|default:'' }}"
+                                   maxlength="20"
+                                   class="form-control {% if form.numero_licencia.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. CDMX123456789">
+                            {% if form.numero_licencia.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.numero_licencia.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Tipo de licencia -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.tipo_licencia.id_for_label }}" class="form-label">
+                                {{ form.tipo_licencia.label }}
+                            </label>
+                            <select name="{{ form.tipo_licencia.html_name }}"
+                                    id="{{ form.tipo_licencia.id_for_label }}"
+                                    class="form-select {% if form.tipo_licencia.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.tipo_licencia.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.tipo_licencia.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.tipo_licencia.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.tipo_licencia.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Vencimiento de licencia -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_vencimiento_licencia.id_for_label }}" class="form-label">
+                                {{ form.fecha_vencimiento_licencia.label }}
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_vencimiento_licencia.html_name }}"
+                                   id="{{ form.fecha_vencimiento_licencia.id_for_label }}"
+                                   value="{{ form.fecha_vencimiento_licencia.value|default:'' }}"
+                                   class="form-control {% if form.fecha_vencimiento_licencia.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_vencimiento_licencia.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_vencimiento_licencia.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% elif form.fecha_vencimiento_licencia.help_text %}
+                            <div class="form-text">{{ form.fecha_vencimiento_licencia.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- CURP -->
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.curp.id_for_label }}" class="form-label">
+                                {{ form.curp.label }}
+                            </label>
+                            <input type="text"
+                                   name="{{ form.curp.html_name }}"
+                                   id="{{ form.curp.id_for_label }}"
+                                   value="{{ form.curp.value|default:'' }}"
+                                   maxlength="18"
+                                   class="form-control {% if form.curp.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. GALA800101HDFRCR01"
+                                   style="text-transform: uppercase">
+                            {% if form.curp.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.curp.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── Botones ─── -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>
+                    {% if es_nuevo %}Registrar conductor{% else %}Guardar cambios{% endif %}
+                </button>
+                {% if not es_nuevo and conductor %}
+                <a href="{% url 'actores:conductor_detalle' conductor.pk %}"
+                   class="btn btn-outline-secondary">Cancelar</a>
+                {% else %}
+                <a href="{% url 'actores:conductores_lista' %}"
+                   class="btn btn-outline-secondary">Cancelar</a>
+                {% endif %}
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}
