@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "PowerShell(pip *)",
-      "PowerShell(py *)"
+      "PowerShell(py *)",
+      "Bash(python manage.py makemigrations actores)",
+      "Bash(pg_lsclusters)",
+      "Bash(PGPASSWORD=flotilla_pass_local psql -h localhost -U flotilla_user -d flotilla_db -c \"SELECT 1;\")",
+      "Bash(PGPASSWORD=flotilla_pass_local psql *)"
     ]
   }
 }

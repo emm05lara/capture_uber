@@ -17,7 +17,14 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.timezone import localdate
 
-from actores.models import Aseguradora, Conductor, PlataformaOperativa, Socio, TitularPoliza
+from actores.models import (
+    Aseguradora,
+    Conductor,
+    PlataformaOperativa,
+    ReferenciaConductor,
+    Socio,
+    TitularPoliza,
+)
 from catalogos.models import AppTransporte, Color, EntidadFederativa, Marca, ModeloVehiculo
 from dispositivos.models import AsignacionTag, DispositivoGps, InstalacionGps, TagTelepeaje
 from operacion.models import AsignacionApp, AsignacionVehiculo
@@ -68,6 +75,9 @@ class Command(BaseCommand):
 
             self._paso("Conductores")
             conductores = self._conductores()
+
+            self._paso("Referencias personales")
+            self._referencias_conductores(conductores)
 
             self._paso("Vehículos")
             vehiculos = self._vehiculos(marcas, colores)
@@ -276,6 +286,52 @@ class Command(BaseCommand):
             )
             conductores[nombre.split()[0]] = c  # índice por primer nombre
         return conductores
+
+    # ─── Referencias personales ──────────────────────────────────────────────
+
+    def _referencias_conductores(self, conductores):
+        # (conductor_key, [(nombre, domicilio, telefono, parentesco), ...])
+        datos = [
+            ("Carlos", [
+                ("Rosa Ruiz Delgado", "Calle Álamos 45, Col. Centro, CDMX", "55-2222-0001", "MADRE"),
+            ]),
+            ("María", [
+                ("Jorge López Peña", "Av. Reforma 120, Col. Juárez, CDMX", "55-2222-0002", "PADRE"),
+                ("Sofía Hernández Cano", "Calle Pino 8, Col. Del Valle, CDMX", "55-2222-0003", "HERMANO_A"),
+            ]),
+            ("Roberto", [
+                ("Laura Torres Nava", "Priv. Encino 12, Naucalpan, EDOMEX", "55-2222-0004", "PAREJA"),
+            ]),
+            ("Ana", [
+                ("Beatriz Silva Ortiz", "Calle Roble 33, Col. Narvarte, CDMX", "55-2222-0005", "MADRE"),
+                ("Pedro Martínez Silva", "Calle Roble 33, Col. Narvarte, CDMX", "55-2222-0006", "HERMANO_A"),
+            ]),
+            ("Luis", [
+                ("Gabriela Flores Ibarra", "Blvd. Cedros 5, Tlalnepantla, EDOMEX", "55-2222-0007", "AMIGO_A"),
+            ]),
+            ("Patricia", [
+                ("Ricardo Cruz Domínguez", "Calle Nogal 21, Col. Doctores, CDMX", "55-2222-0008", "PADRE"),
+            ]),
+            ("Elena", [
+                ("Fernando Juárez Rosas", "Av. Insurgentes 900, Col. Roma, CDMX", "55-2222-0009", "HIJO_A"),
+                ("Marcela Castro Juárez", "Av. Insurgentes 900, Col. Roma, CDMX", "55-2222-0010", "TIO_A"),
+            ]),
+            ("Diego", [
+                ("Alicia Vega Morales", "Calle Sauce 17, Ecatepec, EDOMEX", "55-2222-0011", "OTRO"),
+            ]),
+        ]
+        for cond_nombre, referencias in datos:
+            conductor = conductores[cond_nombre]
+            for nombre, domicilio, telefono, parentesco in referencias:
+                ReferenciaConductor.objects.get_or_create(
+                    conductor=conductor,
+                    nombre=nombre,
+                    defaults={
+                        "domicilio": domicilio,
+                        "telefono_contacto": telefono,
+                        "parentesco": parentesco,
+                    },
+                )
 
     # ─── Vehículos ───────────────────────────────────────────────────────────
 

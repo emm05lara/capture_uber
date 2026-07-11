@@ -1,11 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from operacion.models import AsignacionVehiculo
-from .forms import ConductorForm
+from .forms import ConductorForm, ReferenciaConductorFormSet
 from .models import Conductor
 
 
@@ -49,18 +50,24 @@ def conductores_lista(request):
 def conductor_nuevo(request):
     if request.method == "POST":
         form = ConductorForm(request.POST)
-        if form.is_valid():
-            data = form.cleaned_data
-            conductor = Conductor.objects.create(
-                nombre_completo=data["nombre_completo"],
-                telefono=data.get("telefono") or None,
-                correo=data.get("correo") or None,
-                estatus_conductor=data["estatus_conductor"],
-                numero_licencia=data.get("numero_licencia") or None,
-                tipo_licencia=data.get("tipo_licencia"),
-                fecha_vencimiento_licencia=data.get("fecha_vencimiento_licencia"),
-                curp=data.get("curp"),
-            )
+        formset = ReferenciaConductorFormSet(
+            request.POST, instance=Conductor(), prefix="referencias",
+        )
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                data = form.cleaned_data
+                conductor = Conductor.objects.create(
+                    nombre_completo=data["nombre_completo"],
+                    telefono=data.get("telefono") or None,
+                    correo=data.get("correo") or None,
+                    estatus_conductor=data["estatus_conductor"],
+                    numero_licencia=data.get("numero_licencia") or None,
+                    tipo_licencia=data.get("tipo_licencia"),
+                    fecha_vencimiento_licencia=data.get("fecha_vencimiento_licencia"),
+                    curp=data.get("curp"),
+                )
+                formset.instance = conductor
+                formset.save()
             messages.success(
                 request,
                 f"Conductor {conductor.nombre_completo} registrado correctamente.",
@@ -68,9 +75,11 @@ def conductor_nuevo(request):
             return redirect("actores:conductor_detalle", pk=conductor.pk)
     else:
         form = ConductorForm()
+        formset = ReferenciaConductorFormSet(instance=Conductor(), prefix="referencias")
 
     return render(request, "actores/conductor_form.html", {
         "form": form,
+        "formset": formset,
         "titulo": "Nuevo conductor",
         "es_nuevo": True,
         "conductor": None,
@@ -92,11 +101,13 @@ def conductor_detalle(request, pk):
         .order_by("-fecha_inicio")
     )
     asignacion_actual = asignaciones.filter(fecha_fin__isnull=True).first()
+    referencias = conductor.referencias.all()
 
     return render(request, "actores/conductor_detalle.html", {
         "conductor": conductor,
         "asignaciones": asignaciones,
         "asignacion_actual": asignacion_actual,
+        "referencias": referencias,
     })
 
 
@@ -106,17 +117,22 @@ def conductor_editar(request, pk):
 
     if request.method == "POST":
         form = ConductorForm(request.POST)
-        if form.is_valid():
-            data = form.cleaned_data
-            conductor.nombre_completo = data["nombre_completo"]
-            conductor.telefono = data.get("telefono") or None
-            conductor.correo = data.get("correo") or None
-            conductor.estatus_conductor = data["estatus_conductor"]
-            conductor.numero_licencia = data.get("numero_licencia") or None
-            conductor.tipo_licencia = data.get("tipo_licencia")
-            conductor.fecha_vencimiento_licencia = data.get("fecha_vencimiento_licencia")
-            conductor.curp = data.get("curp")
-            conductor.save()
+        formset = ReferenciaConductorFormSet(
+            request.POST, instance=conductor, prefix="referencias",
+        )
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                data = form.cleaned_data
+                conductor.nombre_completo = data["nombre_completo"]
+                conductor.telefono = data.get("telefono") or None
+                conductor.correo = data.get("correo") or None
+                conductor.estatus_conductor = data["estatus_conductor"]
+                conductor.numero_licencia = data.get("numero_licencia") or None
+                conductor.tipo_licencia = data.get("tipo_licencia")
+                conductor.fecha_vencimiento_licencia = data.get("fecha_vencimiento_licencia")
+                conductor.curp = data.get("curp")
+                conductor.save()
+                formset.save()
             messages.success(request, "Datos del conductor actualizados correctamente.")
             return redirect("actores:conductor_detalle", pk=pk)
     else:
@@ -130,9 +146,11 @@ def conductor_editar(request, pk):
             "fecha_vencimiento_licencia": conductor.fecha_vencimiento_licencia or "",
             "curp": conductor.curp or "",
         })
+        formset = ReferenciaConductorFormSet(instance=conductor, prefix="referencias")
 
     return render(request, "actores/conductor_form.html", {
         "form": form,
+        "formset": formset,
         "titulo": f"Editar — {conductor.nombre_completo}",
         "es_nuevo": False,
         "conductor": conductor,

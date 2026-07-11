@@ -96,6 +96,13 @@
             {% endif %}
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab"
+                data-bs-target="#tab-referencias" type="button" role="tab">
+            <i class="bi bi-person-lines-fill me-1"></i>Referencias personales
+            <span class="badge bg-secondary ms-1">{{ referencias|length }}</span>
+        </button>
+    </li>
 </ul>
 
 <div class="tab-content">
@@ -303,6 +310,46 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- ═══ TAB 3: REFERENCIAS PERSONALES ═══ -->
+    <div class="tab-pane fade" id="tab-referencias" role="tabpanel">
+        {% if referencias %}
+        <div class="row g-3">
+            {% for referencia in referencias %}
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold">
+                        <i class="bi bi-person me-1"></i>{{ referencia.nombre }}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis border float-end">
+                            {{ referencia.get_parentesco_display }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0 small">
+                            <dt class="col-4 text-muted">Teléfono</dt>
+                            <dd class="col-8">{{ referencia.telefono_contacto }}</dd>
+
+                            <dt class="col-4 text-muted">Domicilio</dt>
+                            <dd class="col-8">{{ referencia.domicilio|linebreaksbr }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+            <span>
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Este conductor no tiene referencias personales registradas.
+            </span>
+            <a href="{% url 'actores:conductor_editar' conductor.pk %}"
+               class="btn btn-sm btn-warning text-nowrap">
+                <i class="bi bi-plus-lg me-1"></i>Agregar referencia
+            </a>
+        </div>
+        {% endif %}
     </div>
 
 </div>

@@ -113,6 +113,67 @@ class Conductor(Persona):
         return self.fecha_vencimiento_licencia >= localdate()
 
 
+class ReferenciaConductor(models.Model):
+    """Referencia personal de un conductor. Entidad dependiente: no existe sin su conductor."""
+
+    class Parentesco(models.TextChoices):
+        MADRE = "MADRE", "Madre"
+        PADRE = "PADRE", "Padre"
+        HERMANO_A = "HERMANO_A", "Hermano/a"
+        PAREJA = "PAREJA", "Pareja"
+        HIJO_A = "HIJO_A", "Hijo/a"
+        TIO_A = "TIO_A", "Tío/a"
+        PRIMO_A = "PRIMO_A", "Primo/a"
+        AMIGO_A = "AMIGO_A", "Amigo/a"
+        OTRO = "OTRO", "Otro"
+
+    conductor = models.ForeignKey(
+        Conductor,
+        on_delete=models.CASCADE,
+        related_name="referencias",
+        verbose_name="conductor",
+    )
+    nombre = models.CharField(
+        max_length=150,
+        verbose_name="nombre",
+    )
+    domicilio = models.TextField(
+        verbose_name="domicilio",
+    )
+    telefono_contacto = models.CharField(
+        max_length=30,
+        verbose_name="teléfono de contacto",
+    )
+    parentesco = models.CharField(
+        max_length=20,
+        choices=Parentesco.choices,
+        verbose_name="parentesco",
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "referencia personal de conductor"
+        verbose_name_plural = "referencias personales de conductores"
+        ordering = ["conductor", "-fecha_creacion"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(parentesco__in=[
+                    "MADRE", "PADRE", "HERMANO_A", "PAREJA", "HIJO_A",
+                    "TIO_A", "PRIMO_A", "AMIGO_A", "OTRO",
+                ]),
+                name="chk_referenciaconductor_parentesco",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["conductor"], name="idx_referencia_conductor"),
+            models.Index(fields=["telefono_contacto"], name="idx_referencia_telefono"),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.get_parentesco_display()}) — {self.conductor.nombre_completo}"
+
+
 class TitularPoliza(Persona):
     class Estatus(models.TextChoices):
         ACTIVO = "ACTIVO", "Activo"

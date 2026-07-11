@@ -6,9 +6,17 @@ from .models import (
     Organizacion,
     Persona,
     PlataformaOperativa,
+    ReferenciaConductor,
     Socio,
     TitularPoliza,
 )
+
+
+class ReferenciaConductorInline(admin.TabularInline):
+    model = ReferenciaConductor
+    extra = 1
+    min_num = 1
+    fields = ["nombre", "domicilio", "telefono_contacto", "parentesco"]
 
 
 @admin.register(Persona)
@@ -45,6 +53,7 @@ class ConductorAdmin(admin.ModelAdmin):
     ordering = ["nombre_completo"]
     readonly_fields = ["fecha_creacion", "fecha_actualizacion", "licencia_vigente_display"]
     actions = ["marcar_activo", "marcar_inactivo", "marcar_bloqueado", "marcar_baja"]
+    inlines = [ReferenciaConductorInline]
     fieldsets = (
         ("Datos personales", {
             "fields": ("nombre_completo", "telefono", "correo", "estatus_conductor"),

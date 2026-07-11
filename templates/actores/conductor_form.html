@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{{ titulo }}{% endblock %}
 
 {% block content %}
@@ -222,6 +223,207 @@
                 </div>
             </div>
 
+            <!-- ─── Referencias personales ─── -->
+            <div class="card mb-3">
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-person-lines-fill me-1"></i>Referencias personales
+                        <span class="text-danger">*</span>
+                    </span>
+                    <button type="button" id="btn-agregar-referencia" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Agregar otra referencia
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Cada conductor debe registrar al menos una referencia personal.
+                    </p>
+
+                    {{ formset.management_form }}
+
+                    {% if formset.non_form_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in formset.non_form_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div id="referencias-container">
+                        {% for ref_form in formset %}
+                        <div class="referencia-row border rounded p-3 mb-3 position-relative">
+                            {% if ref_form.non_field_errors %}
+                            <div class="alert alert-danger py-1 px-2 small">
+                                {% for error in ref_form.non_field_errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% for hidden in ref_form.hidden_fields %}{{ hidden }}{% endfor %}
+
+                            <div class="row g-3">
+                                <div class="col-12 col-sm-6">
+                                    <label for="{{ ref_form.nombre.id_for_label }}" class="form-label">
+                                        {{ ref_form.nombre.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text"
+                                           name="{{ ref_form.nombre.html_name }}"
+                                           id="{{ ref_form.nombre.id_for_label }}"
+                                           value="{{ ref_form.nombre.value|default:'' }}"
+                                           maxlength="150"
+                                           class="form-control {% if ref_form.nombre.errors %}is-invalid{% endif %}"
+                                           placeholder="Ej. Rosa Gómez Pérez">
+                                    {% if ref_form.nombre.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for e in ref_form.nombre.errors %}{{ e }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label for="{{ ref_form.parentesco.id_for_label }}" class="form-label">
+                                        {{ ref_form.parentesco.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <select name="{{ ref_form.parentesco.html_name }}"
+                                            id="{{ ref_form.parentesco.id_for_label }}"
+                                            class="form-select {% if ref_form.parentesco.errors %}is-invalid{% endif %}">
+                                        <option value="">— Seleccionar —</option>
+                                        {% for val, etiqueta in ref_form.parentesco.field.choices %}
+                                        {% if val %}
+                                        <option value="{{ val }}"
+                                            {% if ref_form.parentesco.value == val %}selected{% endif %}>
+                                            {{ etiqueta }}
+                                        </option>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    {% if ref_form.parentesco.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for e in ref_form.parentesco.errors %}{{ e }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label for="{{ ref_form.telefono_contacto.id_for_label }}" class="form-label">
+                                        {{ ref_form.telefono_contacto.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text"
+                                           name="{{ ref_form.telefono_contacto.html_name }}"
+                                           id="{{ ref_form.telefono_contacto.id_for_label }}"
+                                           value="{{ ref_form.telefono_contacto.value|default:'' }}"
+                                           maxlength="30"
+                                           class="form-control {% if ref_form.telefono_contacto.errors %}is-invalid{% endif %}"
+                                           placeholder="Ej. 55 1234 5678">
+                                    {% if ref_form.telefono_contacto.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for e in ref_form.telefono_contacto.errors %}{{ e }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label for="{{ ref_form.domicilio.id_for_label }}" class="form-label">
+                                        {{ ref_form.domicilio.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea name="{{ ref_form.domicilio.html_name }}"
+                                              id="{{ ref_form.domicilio.id_for_label }}"
+                                              rows="2"
+                                              class="form-control {% if ref_form.domicilio.errors %}is-invalid{% endif %}"
+                                              placeholder="Calle, número, colonia, ciudad">{{ ref_form.domicilio.value|default:'' }}</textarea>
+                                    {% if ref_form.domicilio.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for e in ref_form.domicilio.errors %}{{ e }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="form-check mt-2 campo-eliminar" style="display:none">
+                                {{ ref_form.DELETE }}
+                                <label class="form-check-label small text-muted" for="{{ ref_form.DELETE.id_for_label }}">
+                                    Marcada para eliminar
+                                </label>
+                            </div>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger btn-eliminar-referencia position-absolute top-0 end-0 m-2">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <template id="template-referencia-vacia">
+                        <div class="referencia-row border rounded p-3 mb-3 position-relative">
+                            {{ formset.empty_form.id }}
+                            <div class="row g-3">
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label">
+                                        Nombre <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text"
+                                           name="{{ formset.empty_form.nombre.html_name }}"
+                                           id="{{ formset.empty_form.nombre.id_for_label }}"
+                                           class="form-control"
+                                           placeholder="Ej. Rosa Gómez Pérez">
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label">
+                                        Parentesco <span class="text-danger">*</span>
+                                    </label>
+                                    <select name="{{ formset.empty_form.parentesco.html_name }}"
+                                            id="{{ formset.empty_form.parentesco.id_for_label }}"
+                                            class="form-select">
+                                        <option value="">— Seleccionar —</option>
+                                        {% for val, etiqueta in formset.empty_form.parentesco.field.choices %}
+                                        {% if val %}
+                                        <option value="{{ val }}">{{ etiqueta }}</option>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label">
+                                        Teléfono de contacto <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text"
+                                           name="{{ formset.empty_form.telefono_contacto.html_name }}"
+                                           id="{{ formset.empty_form.telefono_contacto.id_for_label }}"
+                                           class="form-control"
+                                           placeholder="Ej. 55 1234 5678">
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label">
+                                        Domicilio <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea name="{{ formset.empty_form.domicilio.html_name }}"
+                                              id="{{ formset.empty_form.domicilio.id_for_label }}"
+                                              rows="2"
+                                              class="form-control"
+                                              placeholder="Calle, número, colonia, ciudad"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-check mt-2 campo-eliminar" style="display:none">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       name="{{ formset.empty_form.DELETE.html_name }}"
+                                       id="{{ formset.empty_form.DELETE.id_for_label }}">
+                                <label class="form-check-label small text-muted" for="{{ formset.empty_form.DELETE.id_for_label }}">
+                                    Marcada para eliminar
+                                </label>
+                            </div>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger btn-eliminar-referencia position-absolute top-0 end-0 m-2">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <!-- ─── Botones ─── -->
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
@@ -241,4 +443,8 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/referencias_formset.js' %}"></script>
 {% endblock %}

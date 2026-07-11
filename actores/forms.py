@@ -1,6 +1,7 @@
 from django import forms
+from django.forms import inlineformset_factory
 
-from .models import Conductor
+from .models import Conductor, ReferenciaConductor
 
 
 class ConductorForm(forms.Form):
@@ -59,3 +60,44 @@ class ConductorForm(forms.Form):
 
     def clean_curp(self):
         return (self.cleaned_data.get("curp") or "").upper().strip() or None
+
+
+class ReferenciaConductorForm(forms.ModelForm):
+    class Meta:
+        model = ReferenciaConductor
+        fields = ["nombre", "domicilio", "telefono_contacto", "parentesco"]
+        labels = {
+            "nombre": "Nombre",
+            "domicilio": "Domicilio",
+            "telefono_contacto": "Teléfono de contacto",
+            "parentesco": "Parentesco",
+        }
+        widgets = {
+            "nombre": forms.TextInput(attrs={"placeholder": "Ej. Rosa Gómez Pérez"}),
+            "domicilio": forms.Textarea(attrs={
+                "rows": 2,
+                "placeholder": "Calle, número, colonia, ciudad",
+            }),
+            "telefono_contacto": forms.TextInput(attrs={"placeholder": "Ej. 55 1234 5678"}),
+        }
+
+    def clean_nombre(self):
+        return (self.cleaned_data.get("nombre") or "").strip()
+
+    def clean_domicilio(self):
+        return (self.cleaned_data.get("domicilio") or "").strip()
+
+    def clean_telefono_contacto(self):
+        return (self.cleaned_data.get("telefono_contacto") or "").strip()
+
+
+ReferenciaConductorFormSet = inlineformset_factory(
+    Conductor,
+    ReferenciaConductor,
+    form=ReferenciaConductorForm,
+    extra=1,
+    min_num=1,
+    validate_min=True,
+    can_delete=True,
+    can_delete_extra=True,
+)
