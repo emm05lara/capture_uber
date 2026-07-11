@@ -198,38 +198,65 @@
                 </div>
             </div>
 
-            <!-- Conductor actual -->
+            <!-- Conductor asignado -->
             <div class="col-md-4">
                 <div class="card h-100">
                     <div class="card-header fw-semibold">
-                        <i class="bi bi-person me-1"></i>Conductor actual
+                        <i class="bi bi-person me-1"></i>Conductor asignado
                     </div>
                     <div class="card-body">
-                        {% if ficha and ficha.conductor %}
+                        {% if asignacion_actual %}
                         <dl class="row mb-0 small">
                             <dt class="col-5 text-muted">Conductor</dt>
-                            <dd class="col-7 fw-semibold">{{ ficha.conductor }}</dd>
+                            <dd class="col-7 fw-semibold">
+                                <a href="{% url 'actores:conductor_detalle' asignacion_actual.conductor.pk %}"
+                                   class="text-decoration-none">
+                                    {{ asignacion_actual.conductor.nombre_completo }}
+                                </a>
+                            </dd>
 
-                            {% if ficha.plataforma %}
+                            <dt class="col-5 text-muted">Teléfono</dt>
+                            <dd class="col-7">{{ asignacion_actual.conductor.telefono|default:"—" }}</dd>
+
+                            <dt class="col-5 text-muted">Desde</dt>
+                            <dd class="col-7">{{ asignacion_actual.fecha_inicio|date:"d/m/Y"|default:"—" }}</dd>
+
+                            {% if asignacion_actual.plataforma %}
                             <dt class="col-5 text-muted">Plataforma</dt>
-                            <dd class="col-7">{{ ficha.plataforma }}</dd>
+                            <dd class="col-7">{{ asignacion_actual.plataforma }}</dd>
                             {% endif %}
 
-                            {% if ficha.socio %}
+                            {% if asignacion_actual.socio %}
                             <dt class="col-5 text-muted">Socio</dt>
-                            <dd class="col-7">{{ ficha.socio }}</dd>
+                            <dd class="col-7">{{ asignacion_actual.socio }}</dd>
                             {% endif %}
 
-                            {% if ficha.cuenta %}
+                            {% if asignacion_actual.cuenta %}
                             <dt class="col-5 text-muted">Cuenta</dt>
-                            <dd class="col-7"><code>{{ ficha.cuenta }}</code></dd>
+                            <dd class="col-7"><code>{{ asignacion_actual.cuenta }}</code></dd>
                             {% endif %}
                         </dl>
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <a href="{% url 'vehiculos:cambiar_conductor' vehiculo.pk %}"
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-arrow-left-right me-1"></i>Cambiar conductor
+                            </a>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalFinalizarAsignacion">
+                                <i class="bi bi-x-circle me-1"></i>Finalizar asignación
+                            </button>
+                        </div>
                         {% else %}
                         <div class="empty-state py-3">
                             <i class="bi bi-person-dash"></i>
                             <span class="d-block small">Sin conductor asignado.</span>
                         </div>
+                        <a href="{% url 'vehiculos:asignar_conductor' vehiculo.pk %}"
+                           class="btn btn-sm btn-primary mt-2">
+                            <i class="bi bi-person-plus me-1"></i>Asignar conductor
+                        </a>
                         {% endif %}
                     </div>
                 </div>
@@ -299,6 +326,13 @@
 
     <!-- ═══ TAB 2: ASIGNACIONES ═══ -->
     <div class="tab-pane fade" id="tab-asignaciones" role="tabpanel">
+        <div class="d-flex justify-content-end mb-2">
+            {% if not asignacion_actual %}
+            <a href="{% url 'vehiculos:asignar_conductor' vehiculo.pk %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-person-plus me-1"></i>Asignar conductor
+            </a>
+            {% endif %}
+        </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
@@ -310,13 +344,18 @@
                         <th>Apps</th>
                         <th>Inicio</th>
                         <th>Fin</th>
+                        <th>Duración</th>
                         <th>Estatus</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for a in asignaciones %}
                     <tr>
-                        <td class="fw-semibold">{{ a.conductor }}</td>
+                        <td class="fw-semibold">
+                            <a href="{% url 'actores:conductor_detalle' a.conductor.pk %}" class="text-decoration-none">
+                                {{ a.conductor }}
+                            </a>
+                        </td>
                         <td>{{ a.plataforma|default:"—" }}</td>
                         <td>{{ a.socio|default:"—" }}</td>
                         <td><code>{{ a.cuenta|default:"—" }}</code></td>
@@ -328,7 +367,10 @@
                             {% empty %}—{% endfor %}
                         </td>
                         <td class="text-nowrap">{{ a.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
-                        <td class="text-nowrap">{{ a.fecha_fin|date:"d/m/Y"|default:"<span class='badge bg-success'>Activa</span>" }}</td>
+                        <td class="text-nowrap">{{ a.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="text-nowrap">
+                            {% if a.duracion_dias is not None %}{{ a.duracion_dias }} día{{ a.duracion_dias|pluralize }}{% else %}—{% endif %}
+                        </td>
                         <td>
                             {% if a.es_actual %}
                             <span class="badge bg-success">Activa</span>
@@ -339,7 +381,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8">
+                        <td colspan="9">
                             <div class="empty-state">
                                 <i class="bi bi-person-dash"></i>
                                 Sin asignaciones registradas.
@@ -730,5 +772,52 @@
         </div>
     </div>
 </div>
+
+<!-- ─── Modal: Finalizar asignación ─── -->
+{% if asignacion_actual %}
+<div class="modal fade" id="modalFinalizarAsignacion" tabindex="-1"
+     aria-labelledby="modalFinalizarAsignacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFinalizarAsignacionLabel">
+                    <i class="bi bi-x-circle me-1"></i>Finalizar asignación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{% url 'vehiculos:finalizar_asignacion' vehiculo.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>
+                        ¿Confirmas finalizar la asignación de
+                        <strong>{{ asignacion_actual.conductor.nombre_completo }}</strong>
+                        a este vehículo?
+                    </p>
+                    <p class="text-muted small">
+                        El vehículo quedará sin conductor asignado. El historial de esta
+                        asignación se conservará.
+                    </p>
+                    <label for="modal-finalizar-fecha" class="form-label fw-semibold">
+                        Fecha de finalización
+                    </label>
+                    <input type="date"
+                           name="fecha_fin"
+                           id="modal-finalizar-fecha"
+                           class="form-control"
+                           value="{% now 'Y-m-d' %}"
+                           min="{{ asignacion_actual.fecha_inicio|date:'Y-m-d' }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Finalizar asignación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}

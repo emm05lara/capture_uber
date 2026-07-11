@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}Cambiar conductor{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Cambiar conductor</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i>
+            Conductor actual: <strong>{{ asignacion_actual.conductor.nombre_completo }}</strong>
+            (desde {{ asignacion_actual.fecha_inicio|date:"d/m/Y"|default:"—" }}).
+            Al confirmar, su asignación se cerrará automáticamente y se creará una
+            nueva asignación para el conductor que elijas.
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-arrow-left-right me-1"></i>Nuevo conductor
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            <label for="{{ form.conductor.id_for_label }}" class="form-label">
+                                {{ form.conductor.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.conductor.html_name }}"
+                                    id="{{ form.conductor.id_for_label }}"
+                                    class="form-select {% if form.conductor.errors %}is-invalid{% endif %}">
+                                <option value="">— Selecciona un conductor —</option>
+                                {% for c in form.fields.conductor.queryset %}
+                                <option value="{{ c.pk }}"
+                                    {% if form.conductor.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ c.nombre_completo }}{% if c.telefono %} — {{ c.telefono }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.conductor.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.conductor.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="form-text">Solo se muestran conductores activos, disponibles y con referencias registradas.</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">
+                                {{ form.fecha_inicio.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_inicio.html_name }}"
+                                   id="{{ form.fecha_inicio.id_for_label }}"
+                                   value="{{ form.fecha_inicio.value|date:'Y-m-d' }}"
+                                   class="form-control {% if form.fecha_inicio.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_inicio.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_inicio.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="form-text">También será la fecha de finalización de la asignación actual.</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.cuenta.id_for_label }}" class="form-label">
+                                {{ form.cuenta.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.cuenta.html_name }}"
+                                   id="{{ form.cuenta.id_for_label }}"
+                                   value="{{ form.cuenta.value|default:'' }}"
+                                   maxlength="100"
+                                   class="form-control {% if form.cuenta.errors %}is-invalid{% endif %}"
+                                   placeholder="Ej. cuenta-uber-01">
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.plataforma.id_for_label }}" class="form-label">
+                                {{ form.plataforma.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <select name="{{ form.plataforma.html_name }}"
+                                    id="{{ form.plataforma.id_for_label }}"
+                                    class="form-select">
+                                <option value="">— Sin especificar —</option>
+                                {% for p in form.fields.plataforma.queryset %}
+                                <option value="{{ p.pk }}"
+                                    {% if form.plataforma.value|stringformat:"s" == p.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ p }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.socio.id_for_label }}" class="form-label">
+                                {{ form.socio.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <select name="{{ form.socio.html_name }}"
+                                    id="{{ form.socio.id_for_label }}"
+                                    class="form-select">
+                                <option value="">— Sin especificar —</option>
+                                {% for s in form.fields.socio.queryset %}
+                                <option value="{{ s.pk }}"
+                                    {% if form.socio.value|stringformat:"s" == s.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ s }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-arrow-left-right me-1"></i>Confirmar cambio de conductor
+                </button>
+                <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

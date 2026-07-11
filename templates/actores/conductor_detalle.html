@@ -216,6 +216,9 @@
                                         {{ asignacion_actual.vehiculo.anio_modelo }}
                                     </dd>
 
+                                    <dt class="col-4 text-muted">Placas</dt>
+                                    <dd class="col-8">{{ asignacion_actual.vehiculo.placas_actuales|default:"—" }}</dd>
+
                                     {% if asignacion_actual.plataforma %}
                                     <dt class="col-4 text-muted">Plataforma</dt>
                                     <dd class="col-8">{{ asignacion_actual.plataforma }}</dd>
@@ -254,12 +257,14 @@
                 <thead class="table-light">
                     <tr>
                         <th>Vehículo</th>
+                        <th>Placas</th>
                         <th>Plataforma</th>
                         <th>Socio</th>
                         <th>Cuenta</th>
                         <th>Apps</th>
                         <th>Inicio</th>
                         <th>Fin</th>
+                        <th>Duración</th>
                         <th>Estatus</th>
                     </tr>
                 </thead>
@@ -277,6 +282,7 @@
                                 {{ a.vehiculo.modelo_vehiculo.nombre_modelo_comercial }}
                             </small>
                         </td>
+                        <td>{{ a.vehiculo.placas_actuales|default:"—" }}</td>
                         <td>{{ a.plataforma|default:"—" }}</td>
                         <td>{{ a.socio|default:"—" }}</td>
                         <td><code>{{ a.cuenta|default:"—" }}</code></td>
@@ -289,6 +295,9 @@
                         </td>
                         <td class="text-nowrap">{{ a.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
                         <td class="text-nowrap">{{ a.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="text-nowrap">
+                            {% if a.duracion_dias is not None %}{{ a.duracion_dias }} día{{ a.duracion_dias|pluralize }}{% else %}—{% endif %}
+                        </td>
                         <td>
                             {% if a.es_actual %}
                             <span class="badge bg-success">Activa</span>
@@ -299,7 +308,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8">
+                        <td colspan="10">
                             <div class="empty-state">
                                 <i class="bi bi-car-front"></i>
                                 Sin asignaciones de vehículo registradas.

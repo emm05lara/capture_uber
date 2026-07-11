@@ -272,6 +272,7 @@ class Command(BaseCommand):
             ("Patricia Sánchez Cruz",     "ACTIVO",   "B", "55-1111-0006"),
             ("Elena Castro Juárez",       "ACTIVO",   "B", "55-1111-0007"),
             ("Diego Morales Vega",        "INACTIVO", "B", "55-1111-0008"),
+            ("Fernanda Rojas Bautista",   "ACTIVO",   "B", "55-1111-0009"),
         ]
         conductores = {}
         for nombre, estatus, tipo_lic, tel in datos:
@@ -318,6 +319,9 @@ class Command(BaseCommand):
             ]),
             ("Diego", [
                 ("Alicia Vega Morales", "Calle Sauce 17, Ecatepec, EDOMEX", "55-2222-0011", "OTRO"),
+            ]),
+            ("Fernanda", [
+                ("Miguel Rojas Peña", "Calle Abeto 9, Col. Anáhuac, CDMX", "55-2222-0012", "PADRE"),
             ]),
         ]
         for cond_nombre, referencias in datos:
@@ -436,6 +440,26 @@ class Command(BaseCommand):
                     app_transporte=app,
                 )
             asignaciones[num_int] = asig
+
+        # Asignaciones finalizadas (historial). V-007 y V-009 quedan sin
+        # conductor activo; Fernanda queda disponible tras su asignación pasada.
+        historicas = [
+            ("V-007", "Carlos", 0, 0, localdate() - timedelta(days=300), localdate() - timedelta(days=200)),
+            ("V-009", "Fernanda", 1, 1, localdate() - timedelta(days=200), localdate() - timedelta(days=100)),
+        ]
+        for num_int, cond_nombre, plat_idx, soc_idx, inicio, fin in historicas:
+            v = vehiculos[num_int]
+            c = conductores[cond_nombre]
+            AsignacionVehiculo.objects.get_or_create(
+                vehiculo=v,
+                conductor=c,
+                fecha_inicio=inicio,
+                defaults={
+                    "plataforma": plat[plat_idx],
+                    "socio": soc[soc_idx],
+                    "fecha_fin": fin,
+                },
+            )
         return asignaciones
 
     # ─── Pólizas ─────────────────────────────────────────────────────────────

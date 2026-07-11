@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models.functions import Upper
+from django.utils.timezone import localdate
 
 
 class AsignacionVehiculo(models.Model):
@@ -93,6 +94,13 @@ class AsignacionVehiculo(models.Model):
     @property
     def estatus_asignacion(self):
         return "ACTIVA" if self.fecha_fin is None else "FINALIZADA"
+
+    @property
+    def duracion_dias(self):
+        if not self.fecha_inicio:
+            return None
+        fin = self.fecha_fin or localdate()
+        return (fin - self.fecha_inicio).days
 
 
 class AsignacionApp(models.Model):

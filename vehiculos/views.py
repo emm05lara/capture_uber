@@ -6,9 +6,12 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.dateparse import parse_date
 from django.utils.timezone import localdate
 from django.views.decorators.http import require_POST
 
+from operacion.forms import AsignacionVehiculoForm
+from operacion.models import AsignacionVehiculo
 from .forms import EditarVehiculoForm, NuevaPlacaForm, NuevoVehiculoForm
 from .models import Emplacamiento, Vehiculo, VwFichaVehiculo
 
@@ -234,15 +237,18 @@ def detalle_vehiculo(request, pk):
         pk=pk,
     )
     ficha = VwFichaVehiculo.objects.filter(pk=pk).first()
+    asignaciones_vehiculo = (
+        vehiculo.asignaciones_vehiculo
+        .select_related("conductor", "plataforma", "socio")
+        .prefetch_related("apps_asignadas__app_transporte")
+    )
+    asignacion_actual = next((a for a in asignaciones_vehiculo if a.es_actual), None)
 
     return render(request, "vehiculos/detalle.html", {
         "vehiculo": vehiculo,
         "ficha": ficha,
-        "asignaciones": (
-            vehiculo.asignaciones_vehiculo
-            .select_related("conductor", "plataforma", "socio")
-            .prefetch_related("apps_asignadas__app_transporte")
-        ),
+        "asignacion_actual": asignacion_actual,
+        "asignaciones": asignaciones_vehiculo,
         "polizas": vehiculo.polizas.select_related("aseguradora", "titular_poliza"),
         "verificaciones": vehiculo.verificaciones.select_related("emplacamiento"),
         "tarjetas": vehiculo.tarjetas_circulacion.select_related("emplacamiento"),
@@ -254,4 +260,159 @@ def detalle_vehiculo(request, pk):
         "asignaciones_tag": vehiculo.asignaciones_tag.select_related("tag"),
         "observaciones": vehiculo.observaciones.select_related("autor_registro")[:20],
         "hoy": localdate(),
+    })
+
+
+@login_required
+def asignar_conductor(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    asignacion_actual = (
+        vehiculo.asignaciones_vehiculo
+        .filter(fecha_fin__isnull=True)
+        .select_related("conductor")
+        .first()
+    )
+
+    if asignacion_actual:
+        messages.info(
+            request,
+            "Este vehículo ya tiene un conductor asignado. "
+            "Finaliza la asignación actual o cambia de conductor.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    if request.method == "POST":
+        form = AsignacionVehiculoForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    AsignacionVehiculo.objects.create(
+                        vehiculo=vehiculo,
+                        conductor=data["conductor"],
+                        fecha_inicio=data["fecha_inicio"],
+                        plataforma=data.get("plataforma"),
+                        socio=data.get("socio"),
+                        cuenta=data.get("cuenta"),
+                    )
+                messages.success(
+                    request,
+                    f"Conductor {data['conductor'].nombre_completo} asignado a este vehículo.",
+                )
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo asignar el conductor. Es posible que ya tenga otra "
+                    "asignación activa o que el vehículo ya no esté disponible.",
+                )
+    else:
+        form = AsignacionVehiculoForm()
+
+    return render(request, "vehiculos/asignar_conductor.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+    })
+
+
+@login_required
+@require_POST
+def finalizar_asignacion(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    asignacion = (
+        vehiculo.asignaciones_vehiculo
+        .filter(fecha_fin__isnull=True)
+        .select_related("conductor")
+        .first()
+    )
+    if not asignacion:
+        messages.error(request, "Este vehículo no tiene una asignación activa para finalizar.")
+        return redirect("vehiculos:detalle", pk=pk)
+
+    fecha_fin_raw = request.POST.get("fecha_fin", "").strip()
+    fecha_fin = parse_date(fecha_fin_raw) if fecha_fin_raw else localdate()
+    if fecha_fin is None or (asignacion.fecha_inicio and fecha_fin < asignacion.fecha_inicio):
+        messages.error(
+            request,
+            "La fecha de finalización no es válida: no puede ser anterior a la fecha de inicio.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    try:
+        with transaction.atomic():
+            asignacion.fecha_fin = fecha_fin
+            asignacion.save(update_fields=["fecha_fin", "fecha_actualizacion"])
+        messages.success(
+            request,
+            f"Asignación de {asignacion.conductor.nombre_completo} finalizada correctamente.",
+        )
+    except IntegrityError:
+        messages.error(request, "No se pudo finalizar la asignación. Intenta nuevamente.")
+
+    return redirect("vehiculos:detalle", pk=pk)
+
+
+@login_required
+def cambiar_conductor(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    asignacion_actual = (
+        vehiculo.asignaciones_vehiculo
+        .filter(fecha_fin__isnull=True)
+        .select_related("conductor")
+        .first()
+    )
+
+    if not asignacion_actual:
+        messages.info(
+            request,
+            "Este vehículo no tiene conductor asignado actualmente. Usa \"Asignar conductor\".",
+        )
+        return redirect("vehiculos:asignar_conductor", pk=pk)
+
+    if request.method == "POST":
+        form = AsignacionVehiculoForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            fecha_cambio = data["fecha_inicio"]
+            if asignacion_actual.fecha_inicio and fecha_cambio < asignacion_actual.fecha_inicio:
+                form.add_error(
+                    "fecha_inicio",
+                    "La nueva fecha de inicio no puede ser anterior al inicio de la asignación actual.",
+                )
+            else:
+                try:
+                    with transaction.atomic():
+                        # Se cierra primero la asignación actual: el vehículo no puede
+                        # tener dos asignaciones activas a la vez (ni siquiera un
+                        # instante dentro de la misma transacción), por la restricción
+                        # de unicidad. Si la creación de la nueva asignación falla más
+                        # abajo, transaction.atomic() revierte también este cierre, así
+                        # que la asignación anterior nunca queda cerrada sin reemplazo.
+                        asignacion_actual.fecha_fin = fecha_cambio
+                        asignacion_actual.save(update_fields=["fecha_fin", "fecha_actualizacion"])
+                        nueva_asignacion = AsignacionVehiculo.objects.create(
+                            vehiculo=vehiculo,
+                            conductor=data["conductor"],
+                            fecha_inicio=fecha_cambio,
+                            plataforma=data.get("plataforma"),
+                            socio=data.get("socio"),
+                            cuenta=data.get("cuenta"),
+                        )
+                    messages.success(
+                        request,
+                        f"Conductor cambiado a {nueva_asignacion.conductor.nombre_completo}.",
+                    )
+                    return redirect("vehiculos:detalle", pk=pk)
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        "No se pudo cambiar el conductor. Es posible que ya no esté disponible.",
+                    )
+    else:
+        form = AsignacionVehiculoForm()
+
+    return render(request, "vehiculos/cambiar_conductor.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "asignacion_actual": asignacion_actual,
     })
