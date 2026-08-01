@@ -1,3 +1,4 @@
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -12,8 +13,22 @@ from django.views.decorators.http import require_POST
 
 from operacion.forms import AsignacionVehiculoForm
 from operacion.models import AsignacionVehiculo
-from .forms import EditarVehiculoForm, NuevaPlacaForm, NuevoVehiculoForm
-from .models import Emplacamiento, Vehiculo, VwFichaVehiculo
+from .forms import (
+    EditarVehiculoForm,
+    NuevaPlacaForm,
+    NuevoVehiculoForm,
+    PolizaSeguroForm,
+    TarjetaCirculacionForm,
+    VerificacionVehicularForm,
+)
+from .models import (
+    Emplacamiento,
+    PolizaSeguro,
+    TarjetaCirculacion,
+    Vehiculo,
+    VerificacionVehicular,
+    VwFichaVehiculo,
+)
 
 
 @login_required
@@ -260,6 +275,7 @@ def detalle_vehiculo(request, pk):
         "asignaciones_tag": vehiculo.asignaciones_tag.select_related("tag"),
         "observaciones": vehiculo.observaciones.select_related("autor_registro")[:20],
         "hoy": localdate(),
+        "limite_amarillo": localdate() + timedelta(days=30),
     })
 
 
@@ -415,4 +431,248 @@ def cambiar_conductor(request, pk):
         "form": form,
         "vehiculo": vehiculo,
         "asignacion_actual": asignacion_actual,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Pólizas de seguro
+# ---------------------------------------------------------------------------
+
+@login_required
+def poliza_nueva(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+
+    if request.method == "POST":
+        form = PolizaSeguroForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    PolizaSeguro.objects.create(
+                        vehiculo=vehiculo,
+                        aseguradora=data["aseguradora"],
+                        titular_poliza=data.get("titular_poliza"),
+                        numero_poliza=data["numero_poliza"],
+                        fecha_vigencia_inicio=data.get("fecha_vigencia_inicio"),
+                        fecha_vigencia_fin=data["fecha_vigencia_fin"],
+                        importe_prima=data.get("importe_prima"),
+                    )
+                messages.success(
+                    request,
+                    f"Póliza {data['numero_poliza']} registrada correctamente.",
+                )
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo registrar la póliza. Verifica que el número no esté "
+                    "duplicado para la misma aseguradora.",
+                )
+    else:
+        form = PolizaSeguroForm(vehiculo=vehiculo)
+
+    return render(request, "vehiculos/poliza_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "es_edicion": False,
+    })
+
+
+@login_required
+def poliza_editar(request, pk, poliza_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    poliza = get_object_or_404(PolizaSeguro, pk=poliza_pk, vehiculo=vehiculo)
+
+    if request.method == "POST":
+        form = PolizaSeguroForm(request.POST, vehiculo=vehiculo, poliza_pk=poliza.pk)
+        if form.is_valid():
+            data = form.cleaned_data
+            poliza.aseguradora = data["aseguradora"]
+            poliza.titular_poliza = data.get("titular_poliza")
+            poliza.numero_poliza = data["numero_poliza"]
+            poliza.fecha_vigencia_inicio = data.get("fecha_vigencia_inicio")
+            poliza.fecha_vigencia_fin = data["fecha_vigencia_fin"]
+            poliza.importe_prima = data.get("importe_prima")
+            try:
+                with transaction.atomic():
+                    poliza.save()
+                messages.success(request, "Póliza actualizada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo actualizar la póliza. Verifica que el número no esté "
+                    "duplicado para la misma aseguradora.",
+                )
+    else:
+        form = PolizaSeguroForm(
+            vehiculo=vehiculo,
+            poliza_pk=poliza.pk,
+            initial={
+                "aseguradora": poliza.aseguradora_id,
+                "titular_poliza": poliza.titular_poliza_id,
+                "numero_poliza": poliza.numero_poliza,
+                "fecha_vigencia_inicio": poliza.fecha_vigencia_inicio,
+                "fecha_vigencia_fin": poliza.fecha_vigencia_fin,
+                "importe_prima": poliza.importe_prima,
+            },
+        )
+
+    return render(request, "vehiculos/poliza_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "poliza": poliza,
+        "es_edicion": True,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Verificaciones vehiculares
+# ---------------------------------------------------------------------------
+
+@login_required
+def verificacion_nueva(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+
+    if request.method == "POST":
+        form = VerificacionVehicularForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    VerificacionVehicular.objects.create(
+                        vehiculo=vehiculo,
+                        emplacamiento=vehiculo.emplacamiento_actual,
+                        semestre=data["semestre"],
+                        fecha_ultima_verificacion=data.get("fecha_ultima_verificacion"),
+                        fecha_limite_verificacion=data["fecha_limite_verificacion"],
+                    )
+                messages.success(
+                    request,
+                    f"Verificación {data['semestre']} registrada correctamente.",
+                )
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo registrar la verificación. Verifica que no exista "
+                    "ya un registro igual para este vehículo.",
+                )
+    else:
+        form = VerificacionVehicularForm()
+
+    return render(request, "vehiculos/verificacion_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "es_edicion": False,
+    })
+
+
+@login_required
+def verificacion_editar(request, pk, verificacion_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    verificacion = get_object_or_404(VerificacionVehicular, pk=verificacion_pk, vehiculo=vehiculo)
+
+    if request.method == "POST":
+        form = VerificacionVehicularForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            verificacion.semestre = data["semestre"]
+            verificacion.fecha_ultima_verificacion = data.get("fecha_ultima_verificacion")
+            verificacion.fecha_limite_verificacion = data["fecha_limite_verificacion"]
+            try:
+                with transaction.atomic():
+                    verificacion.save()
+                messages.success(request, "Verificación actualizada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo actualizar la verificación. Verifica que no exista "
+                    "ya un registro igual para este vehículo.",
+                )
+    else:
+        form = VerificacionVehicularForm(initial={
+            "semestre": verificacion.semestre,
+            "fecha_ultima_verificacion": verificacion.fecha_ultima_verificacion,
+            "fecha_limite_verificacion": verificacion.fecha_limite_verificacion,
+        })
+
+    return render(request, "vehiculos/verificacion_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "verificacion": verificacion,
+        "es_edicion": True,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Tarjetas de circulación
+# ---------------------------------------------------------------------------
+
+@login_required
+def tarjeta_nueva(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+
+    if request.method == "POST":
+        form = TarjetaCirculacionForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    TarjetaCirculacion.objects.create(
+                        vehiculo=vehiculo,
+                        emplacamiento=vehiculo.emplacamiento_actual,
+                        fecha_emision=data.get("fecha_emision"),
+                        fecha_vigencia_fin=data["fecha_vigencia_fin"],
+                    )
+                messages.success(request, "Tarjeta de circulación registrada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo registrar la tarjeta de circulación. Intenta nuevamente.",
+                )
+    else:
+        form = TarjetaCirculacionForm()
+
+    return render(request, "vehiculos/tarjeta_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "es_edicion": False,
+    })
+
+
+@login_required
+def tarjeta_editar(request, pk, tarjeta_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    tarjeta = get_object_or_404(TarjetaCirculacion, pk=tarjeta_pk, vehiculo=vehiculo)
+
+    if request.method == "POST":
+        form = TarjetaCirculacionForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            tarjeta.fecha_emision = data.get("fecha_emision")
+            tarjeta.fecha_vigencia_fin = data["fecha_vigencia_fin"]
+            try:
+                with transaction.atomic():
+                    tarjeta.save()
+                messages.success(request, "Tarjeta de circulación actualizada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo actualizar la tarjeta de circulación. Intenta nuevamente.",
+                )
+    else:
+        form = TarjetaCirculacionForm(initial={
+            "fecha_emision": tarjeta.fecha_emision,
+            "fecha_vigencia_fin": tarjeta.fecha_vigencia_fin,
+        })
+
+    return render(request, "vehiculos/tarjeta_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "tarjeta": tarjeta,
+        "es_edicion": True,
     })

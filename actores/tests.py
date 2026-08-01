@@ -8,6 +8,14 @@ User = get_user_model()
 
 
 def datos_conductor(**overrides):
+    """Payload en formato de formulario (POST): los campos opcionales se
+    envían como cadena vacía, tal como lo hace un <input> HTML sin llenar.
+    El formulario se encarga de normalizarlos a None antes de guardar.
+    No usar esta función para crear objetos directamente vía el ORM
+    (usar crear_conductor en su lugar): el ORM no pasa por esa limpieza y
+    "" no es un valor válido para una fecha ni para un choice con
+    restricción CHECK en base de datos.
+    """
     datos = {
         "nombre_completo": "Juan Pérez López",
         "telefono": "",
@@ -20,6 +28,24 @@ def datos_conductor(**overrides):
     }
     datos.update(overrides)
     return datos
+
+
+def crear_conductor(**overrides):
+    """Crea un Conductor directamente vía el ORM, con los campos opcionales
+    en None (no ""), que es el valor correcto para saltarse el formulario.
+    """
+    datos = {
+        "nombre_completo": "Juan Pérez López",
+        "telefono": None,
+        "correo": None,
+        "estatus_conductor": Conductor.Estatus.ACTIVO,
+        "numero_licencia": None,
+        "tipo_licencia": None,
+        "fecha_vencimiento_licencia": None,
+        "curp": None,
+    }
+    datos.update(overrides)
+    return Conductor.objects.create(**datos)
 
 
 def datos_formset_referencias(referencias, total_forms=None, initial_forms=0):
@@ -114,7 +140,7 @@ class ReferenciaConductorTests(TestCase):
         self.assertEqual(conductor.referencias.count(), 2)
 
     def test_editar_referencia_existente(self):
-        conductor = Conductor.objects.create(**datos_conductor())
+        conductor = crear_conductor()
         referencia = ReferenciaConductor.objects.create(
             conductor=conductor,
             nombre="Rosa Gómez Pérez",
@@ -143,7 +169,7 @@ class ReferenciaConductorTests(TestCase):
         self.assertEqual(referencia.domicilio, "Nueva dirección 456")
 
     def test_no_permite_eliminar_la_ultima_referencia(self):
-        conductor = Conductor.objects.create(**datos_conductor())
+        conductor = crear_conductor()
         referencia = ReferenciaConductor.objects.create(
             conductor=conductor,
             nombre="Rosa Gómez Pérez",
@@ -172,7 +198,7 @@ class ReferenciaConductorTests(TestCase):
         self.assertTrue(ReferenciaConductor.objects.filter(pk=referencia.pk).exists())
 
     def test_eliminacion_en_cascada_al_borrar_conductor(self):
-        conductor = Conductor.objects.create(**datos_conductor())
+        conductor = crear_conductor()
         referencia = ReferenciaConductor.objects.create(
             conductor=conductor,
             nombre="Rosa Gómez Pérez",
@@ -186,8 +212,8 @@ class ReferenciaConductorTests(TestCase):
         self.assertFalse(ReferenciaConductor.objects.filter(pk=referencia.pk).exists())
 
     def test_no_permite_editar_referencia_de_otro_conductor(self):
-        conductor_a = Conductor.objects.create(**datos_conductor(nombre_completo="Conductor A"))
-        conductor_b = Conductor.objects.create(**datos_conductor(nombre_completo="Conductor B"))
+        conductor_a = crear_conductor(nombre_completo="Conductor A")
+        conductor_b = crear_conductor(nombre_completo="Conductor B")
         referencia_a = ReferenciaConductor.objects.create(
             conductor=conductor_a,
             nombre="Referencia de A",

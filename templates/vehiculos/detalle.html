@@ -437,19 +437,27 @@
         </div>
 
         <!-- Pólizas de seguro -->
-        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Pólizas de seguro</h6>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-uppercase text-muted small fw-semibold mb-0">Pólizas de seguro</h6>
+            <a href="{% url 'vehiculos:poliza_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Registrar póliza
+            </a>
+        </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>N° póliza</th><th>Aseguradora</th><th>Titular</th>
-                        <th>Inicio vigencia</th><th>Fin vigencia</th><th>Prima</th><th>Estado</th>
+                        <th>Inicio vigencia</th><th>Fin vigencia</th><th>Prima</th><th>Estado</th><th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in polizas %}
                     <tr>
-                        <td><code>{{ p.numero_poliza }}</code></td>
+                        <td>
+                            <code>{{ p.numero_poliza }}</code>
+                            {% if forloop.first %}<span class="badge bg-primary-subtle text-primary-emphasis border ms-1">Actual</span>{% endif %}
+                        </td>
                         <td>{{ p.aseguradora }}</td>
                         <td>{{ p.titular_poliza|default:"—" }}</td>
                         <td>{{ p.fecha_vigencia_inicio|date:"d/m/Y"|default:"—" }}</td>
@@ -461,79 +469,116 @@
                             {% if p.importe_prima %}${{ p.importe_prima|floatformat:2 }}{% else %}—{% endif %}
                         </td>
                         <td>
-                            {% if p.vigente %}
-                            <span class="badge bg-success">Vigente</span>
-                            {% else %}
+                            {% if p.fecha_vigencia_fin < hoy %}
                             <span class="badge bg-danger">Vencida</span>
+                            {% elif p.fecha_vigencia_fin <= limite_amarillo %}
+                            <span class="badge bg-warning text-dark">Próxima a vencer</span>
+                            {% else %}
+                            <span class="badge bg-success">Vigente</span>
                             {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'vehiculos:poliza_editar' vehiculo.pk p.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="text-muted text-center py-2">Sin pólizas registradas.</td></tr>
+                    <tr><td colspan="8" class="text-muted text-center py-2">Sin póliza registrada.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
         <!-- Verificaciones -->
-        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Verificaciones vehiculares</h6>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-uppercase text-muted small fw-semibold mb-0">Verificaciones vehiculares</h6>
+            <a href="{% url 'vehiculos:verificacion_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Registrar verificación
+            </a>
+        </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Semestre</th><th>Última verificación</th>
-                        <th>Fecha límite</th><th>Estado</th>
+                        <th>Fecha límite</th><th>Estado</th><th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for v in verificaciones %}
                     <tr>
-                        <td>{{ v.semestre }}</td>
+                        <td>
+                            {{ v.semestre }}
+                            {% if forloop.first %}<span class="badge bg-primary-subtle text-primary-emphasis border ms-1">Actual</span>{% endif %}
+                        </td>
                         <td>{{ v.fecha_ultima_verificacion|date:"d/m/Y"|default:"—" }}</td>
                         <td class="{% if v.fecha_limite_verificacion < hoy %}text-danger fw-semibold{% endif %}">
                             {{ v.fecha_limite_verificacion|date:"d/m/Y" }}
                             {% if v.fecha_limite_verificacion < hoy %}<i class="bi bi-exclamation-circle-fill"></i>{% endif %}
                         </td>
                         <td>
-                            {% if v.vencida %}
+                            {% if v.fecha_limite_verificacion < hoy %}
                             <span class="badge bg-danger">Vencida</span>
+                            {% elif v.fecha_limite_verificacion <= limite_amarillo %}
+                            <span class="badge bg-warning text-dark">Próxima a vencer</span>
                             {% else %}
-                            <span class="badge bg-success">Vigente</span>
+                            <span class="badge bg-success">A tiempo</span>
                             {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'vehiculos:verificacion_editar' vehiculo.pk v.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="text-muted text-center py-2">Sin verificaciones.</td></tr>
+                    <tr><td colspan="5" class="text-muted text-center py-2">Sin verificación registrada.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
         <!-- Tarjetas de circulación -->
-        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Tarjetas de circulación</h6>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-uppercase text-muted small fw-semibold mb-0">Tarjetas de circulación</h6>
+            <a href="{% url 'vehiculos:tarjeta_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Registrar tarjeta
+            </a>
+        </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
-                    <tr><th>Emisión</th><th>Vigencia hasta</th><th>Estado</th></tr>
+                    <tr><th>Emisión</th><th>Vigencia hasta</th><th>Estado</th><th></th></tr>
                 </thead>
                 <tbody>
                     {% for t in tarjetas %}
                     <tr>
-                        <td>{{ t.fecha_emision|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            {{ t.fecha_emision|date:"d/m/Y"|default:"—" }}
+                            {% if forloop.first %}<span class="badge bg-primary-subtle text-primary-emphasis border ms-1">Actual</span>{% endif %}
+                        </td>
                         <td class="{% if t.fecha_vigencia_fin < hoy %}text-danger fw-semibold{% endif %}">
                             {{ t.fecha_vigencia_fin|date:"d/m/Y" }}
                             {% if t.fecha_vigencia_fin < hoy %}<i class="bi bi-exclamation-circle-fill"></i>{% endif %}
                         </td>
                         <td>
-                            {% if t.vigente %}
-                            <span class="badge bg-success">Vigente</span>
-                            {% else %}
+                            {% if t.fecha_vigencia_fin < hoy %}
                             <span class="badge bg-danger">Vencida</span>
+                            {% elif t.fecha_vigencia_fin <= limite_amarillo %}
+                            <span class="badge bg-warning text-dark">Próxima a vencer</span>
+                            {% else %}
+                            <span class="badge bg-success">Vigente</span>
                             {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'vehiculos:tarjeta_editar' vehiculo.pk t.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="3" class="text-muted text-center py-2">Sin tarjetas registradas.</td></tr>
+                    <tr><td colspan="4" class="text-muted text-center py-2">Sin tarjeta registrada.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

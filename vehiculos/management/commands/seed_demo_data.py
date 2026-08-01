@@ -91,7 +91,7 @@ class Command(BaseCommand):
             self._paso("Documentación")
             titular = self._titular_poliza()
             self._polizas(vehiculos, aseguradoras, titular, verde, amarillo, rojo)
-            self._verificaciones(vehiculos, emplacamientos, verde, amarillo)
+            self._verificaciones(vehiculos, emplacamientos, verde, amarillo, rojo)
             self._tarjetas(vehiculos, emplacamientos, verde, rojo)
             self._tenencias(vehiculos, hoy)
 
@@ -496,7 +496,7 @@ class Command(BaseCommand):
 
     # ─── Verificaciones ──────────────────────────────────────────────────────
 
-    def _verificaciones(self, vehiculos, emplacamientos, verde, amarillo):
+    def _verificaciones(self, vehiculos, emplacamientos, verde, amarillo, rojo):
         hoy = localdate()
         datos = [
             # (num_int, semestre, ultima_verif, limite)
@@ -504,6 +504,7 @@ class Command(BaseCommand):
             ("V-002", "2026-1", hoy - timedelta(days=45), verde),
             ("V-003", "2026-1", hoy - timedelta(days=60), verde),         # poliza da AMARILLO, verif ok
             ("V-004", "2026-1", hoy - timedelta(days=30), amarillo),      # verif da AMARILLO
+            ("V-005", "2025-2", hoy - timedelta(days=200), rojo),        # verif vencida (poliza y adeudo también ROJO)
             ("V-006", "2026-1", hoy - timedelta(days=60), verde),         # adeudo da ROJO, verif ok
             ("V-008", "2026-1", hoy - timedelta(days=60), verde),
         ]
@@ -523,6 +524,10 @@ class Command(BaseCommand):
     # ─── Tarjetas de circulación ─────────────────────────────────────────────
 
     def _tarjetas(self, vehiculos, emplacamientos, verde, rojo):
+        # La clave estable es el vehículo (un solo registro demo de tarjeta
+        # por unidad); las fechas, al depender de "hoy", solo pueden vivir en
+        # defaults/update_or_create para no generar un registro nuevo cada
+        # vez que el comando se ejecuta en un día distinto.
         hoy = localdate()
         datos = [
             ("V-001", hoy - timedelta(days=365), verde),
@@ -536,12 +541,12 @@ class Command(BaseCommand):
         for num_int, emision, vigencia_fin in datos:
             v = vehiculos[num_int]
             emp = emplacamientos.get(num_int)
-            TarjetaCirculacion.objects.get_or_create(
+            TarjetaCirculacion.objects.update_or_create(
                 vehiculo=v,
-                fecha_vigencia_fin=vigencia_fin,
                 defaults={
                     "emplacamiento": emp,
                     "fecha_emision": emision,
+                    "fecha_vigencia_fin": vigencia_fin,
                 },
             )
 
