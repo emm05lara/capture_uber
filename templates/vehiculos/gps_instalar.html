@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Instalar GPS — {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Instalar GPS</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <!-- Información del vehículo -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <strong>{{ vehiculo.numero_interno|default:vehiculo.numero_serie }}</strong>
+                — {{ vehiculo.modelo_vehiculo }} {{ vehiculo.anio_modelo }}
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-broadcast me-1"></i>Instalación de GPS
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            <label for="{{ form.gps.id_for_label }}" class="form-label">
+                                {{ form.gps.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.gps.html_name }}"
+                                    id="{{ form.gps.id_for_label }}"
+                                    class="form-select {% if form.gps.errors %}is-invalid{% endif %}">
+                                <option value="">— Selecciona un GPS disponible —</option>
+                                {% for dispositivo in form.gps.field.queryset %}
+                                <option value="{{ dispositivo.pk }}"
+                                    {% if form.gps.value|stringformat:"s" == dispositivo.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ dispositivo.imei }}{% if dispositivo.numero_gps %} ({{ dispositivo.numero_gps }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.gps.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.gps.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if not form.gps.field.queryset %}
+                            <div class="form-text text-warning">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                No hay dispositivos GPS disponibles en este momento.
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_instalacion.id_for_label }}" class="form-label">
+                                {{ form.fecha_instalacion.label }}
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_instalacion.html_name }}"
+                                   id="{{ form.fecha_instalacion.id_for_label }}"
+                                   value="{{ form.fecha_instalacion.value|date:'Y-m-d' }}"
+                                   class="form-control {% if form.fecha_instalacion.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_instalacion.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_instalacion.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Instalar GPS
+                </button>
+                <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

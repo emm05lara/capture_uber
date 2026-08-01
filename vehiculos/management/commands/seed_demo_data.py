@@ -652,6 +652,30 @@ class Command(BaseCommand):
                 defaults={"fecha_instalacion": hoy - timedelta(days=90)},
             )
 
+        # GPS disponible en almacén: activo, sin instalación vigente en
+        # ningún vehículo (queda listo para instalarse desde la GUI).
+        DispositivoGps.objects.get_or_create(
+            imei="864DEMO000000006",
+            defaults={"numero_gps": "GPS-D06", "estatus_gps": "ACTIVO"},
+        )
+
+        # Instalación histórica finalizada: V-005 tuvo un GPS que ya se
+        # retiró, así que hoy queda "sin GPS vigente" pero con historial.
+        # La clave estable es (vehículo, gps); las fechas —relativas a
+        # "hoy"— solo viven en defaults para no duplicar en cada corrida.
+        gps_retirado, _ = DispositivoGps.objects.get_or_create(
+            imei="864DEMO000000007",
+            defaults={"numero_gps": "GPS-D07", "estatus_gps": "INACTIVO"},
+        )
+        InstalacionGps.objects.get_or_create(
+            vehiculo=vehiculos["V-005"],
+            gps=gps_retirado,
+            defaults={
+                "fecha_instalacion": hoy - timedelta(days=200),
+                "fecha_retiro": hoy - timedelta(days=100),
+            },
+        )
+
         tag_datos = [
             ("TAG-DEMO-001", "T001", "V-001"),
             ("TAG-DEMO-002", "T002", "V-002"),
@@ -670,6 +694,27 @@ class Command(BaseCommand):
                 fecha_fin=None,
                 defaults={"fecha_inicio": hoy - timedelta(days=90)},
             )
+
+        # TAG disponible en almacén, sin asignación vigente.
+        TagTelepeaje.objects.get_or_create(
+            codigo_tag="TAG-DEMO-005",
+            defaults={"codigo_tag_corto": "T005", "estatus_tag": "ACTIVO"},
+        )
+
+        # Asignación histórica finalizada: V-006 tuvo un TAG que ya se
+        # retiró, así que hoy queda "sin TAG vigente" pero con historial.
+        tag_retirado, _ = TagTelepeaje.objects.get_or_create(
+            codigo_tag="TAG-DEMO-006",
+            defaults={"codigo_tag_corto": "T006", "estatus_tag": "INACTIVO"},
+        )
+        AsignacionTag.objects.get_or_create(
+            vehiculo=vehiculos["V-006"],
+            tag=tag_retirado,
+            defaults={
+                "fecha_inicio": hoy - timedelta(days=200),
+                "fecha_fin": hoy - timedelta(days=100),
+            },
+        )
 
     # ─── Observaciones ───────────────────────────────────────────────────────
 

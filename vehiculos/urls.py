@@ -41,4 +41,10 @@ urlpatterns = [
         views.observacion_editar,
         name="observacion_editar",
     ),
+    path("vehiculos/<int:pk>/gps/instalar/", views.gps_instalar, name="gps_instalar"),
+    path("vehiculos/<int:pk>/gps/retirar/", views.gps_retirar, name="gps_retirar"),
+    path("vehiculos/<int:pk>/gps/cambiar/", views.gps_cambiar, name="gps_cambiar"),
+    path("vehiculos/<int:pk>/tag/asignar/", views.tag_asignar, name="tag_asignar"),
+    path("vehiculos/<int:pk>/tag/retirar/", views.tag_retirar, name="tag_retirar"),
+    path("vehiculos/<int:pk>/tag/cambiar/", views.tag_cambiar, name="tag_cambiar"),
 ]

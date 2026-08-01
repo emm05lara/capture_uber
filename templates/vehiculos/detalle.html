@@ -641,9 +641,58 @@
     <div class="tab-pane fade" id="tab-dispositivos" role="tabpanel">
 
         <!-- GPS -->
-        <h6 class="text-uppercase text-muted small fw-semibold mt-1 mb-2">
-            <i class="bi bi-broadcast me-1"></i>Instalaciones GPS
-        </h6>
+        <div class="d-flex justify-content-between align-items-center mt-1 mb-2">
+            <h6 class="text-uppercase text-muted small fw-semibold mb-0">
+                <i class="bi bi-broadcast me-1"></i>GPS
+            </h6>
+            {% if gps_actual %}
+            <div class="d-flex gap-2">
+                <a href="{% url 'vehiculos:gps_cambiar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left-right me-1"></i>Cambiar GPS
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-bs-toggle="modal" data-bs-target="#modalRetirarGps">
+                    <i class="bi bi-x-lg me-1"></i>Retirar GPS
+                </button>
+            </div>
+            {% else %}
+            <a href="{% url 'vehiculos:gps_instalar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Instalar GPS
+            </a>
+            {% endif %}
+        </div>
+
+        {% if gps_actual %}
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <dl class="row mb-0 small">
+                    <dt class="col-3 text-muted">IMEI</dt>
+                    <dd class="col-9">
+                        <a href="{% url 'dispositivos:gps_detalle' gps_actual.gps.pk %}" class="text-decoration-none">
+                            <code>{{ gps_actual.gps.imei }}</code>
+                        </a>
+                        {% if gps_actual.gps.numero_gps %}({{ gps_actual.gps.numero_gps }}){% endif %}
+                    </dd>
+                    <dt class="col-3 text-muted">Instalado desde</dt>
+                    <dd class="col-9">{{ gps_actual.fecha_instalacion|date:"d/m/Y"|default:"—" }}</dd>
+                    <dt class="col-3 text-muted">Estatus</dt>
+                    <dd class="col-9">
+                        {% if gps_actual.gps.estatus_gps == "ACTIVO" %}
+                        <span class="badge bg-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ gps_actual.gps.get_estatus_gps_display }}</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state py-3 mb-3">
+            <i class="bi bi-broadcast"></i>
+            <span class="d-block small">Sin GPS instalado.</span>
+        </div>
+        {% endif %}
+
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
@@ -652,7 +701,11 @@
                 <tbody>
                     {% for inst in instalaciones_gps %}
                     <tr>
-                        <td><code>{{ inst.gps.imei }}</code></td>
+                        <td>
+                            <a href="{% url 'dispositivos:gps_detalle' inst.gps.pk %}" class="text-decoration-none">
+                                <code>{{ inst.gps.imei }}</code>
+                            </a>
+                        </td>
                         <td>{{ inst.gps.numero_gps|default:"—" }}</td>
                         <td>{{ inst.fecha_instalacion|date:"d/m/Y"|default:"—" }}</td>
                         <td>{{ inst.fecha_retiro|date:"d/m/Y"|default:"—" }}</td>
@@ -672,9 +725,58 @@
         </div>
 
         <!-- TAG -->
-        <h6 class="text-uppercase text-muted small fw-semibold mb-2">
-            <i class="bi bi-tag me-1"></i>TAGs de telepeaje
-        </h6>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-uppercase text-muted small fw-semibold mb-0">
+                <i class="bi bi-tag me-1"></i>TAG de telepeaje
+            </h6>
+            {% if tag_actual %}
+            <div class="d-flex gap-2">
+                <a href="{% url 'vehiculos:tag_cambiar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left-right me-1"></i>Cambiar TAG
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-bs-toggle="modal" data-bs-target="#modalRetirarTag">
+                    <i class="bi bi-x-lg me-1"></i>Retirar TAG
+                </button>
+            </div>
+            {% else %}
+            <a href="{% url 'vehiculos:tag_asignar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Asignar TAG
+            </a>
+            {% endif %}
+        </div>
+
+        {% if tag_actual %}
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <dl class="row mb-0 small">
+                    <dt class="col-3 text-muted">Código</dt>
+                    <dd class="col-9">
+                        <a href="{% url 'dispositivos:tag_detalle' tag_actual.tag.pk %}" class="text-decoration-none">
+                            <code>{{ tag_actual.tag.codigo_tag }}</code>
+                        </a>
+                        {% if tag_actual.tag.codigo_tag_corto %}({{ tag_actual.tag.codigo_tag_corto }}){% endif %}
+                    </dd>
+                    <dt class="col-3 text-muted">Asignado desde</dt>
+                    <dd class="col-9">{{ tag_actual.fecha_inicio|date:"d/m/Y"|default:"—" }}</dd>
+                    <dt class="col-3 text-muted">Estatus</dt>
+                    <dd class="col-9">
+                        {% if tag_actual.tag.estatus_tag == "ACTIVO" %}
+                        <span class="badge bg-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ tag_actual.tag.get_estatus_tag_display }}</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state py-3 mb-3">
+            <i class="bi bi-tag"></i>
+            <span class="d-block small">Sin TAG asignado.</span>
+        </div>
+        {% endif %}
+
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
@@ -683,7 +785,11 @@
                 <tbody>
                     {% for asig in asignaciones_tag %}
                     <tr>
-                        <td><code>{{ asig.tag.codigo_tag }}</code></td>
+                        <td>
+                            <a href="{% url 'dispositivos:tag_detalle' asig.tag.pk %}" class="text-decoration-none">
+                                <code>{{ asig.tag.codigo_tag }}</code>
+                            </a>
+                        </td>
                         <td>{{ asig.tag.codigo_tag_corto|default:"—" }}</td>
                         <td>{{ asig.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
                         <td>{{ asig.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
@@ -932,6 +1038,88 @@
 </div>
 {% endif %}
 {% endfor %}
+
+<!-- ─── Modal: Retirar GPS ─── -->
+{% if gps_actual %}
+<div class="modal fade" id="modalRetirarGps" tabindex="-1"
+     aria-labelledby="modalRetirarGpsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalRetirarGpsLabel">
+                    <i class="bi bi-x-lg me-1"></i>Retirar GPS
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{% url 'vehiculos:gps_retirar' vehiculo.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>
+                        ¿Confirmas retirar el GPS <strong>{{ gps_actual.gps.imei }}</strong>
+                        de este vehículo?
+                    </p>
+                    <p class="text-muted small">El historial de esta instalación se conservará.</p>
+                    <label for="modal-gps-retiro-fecha" class="form-label fw-semibold">Fecha de retiro</label>
+                    <input type="date"
+                           name="fecha_retiro"
+                           id="modal-gps-retiro-fecha"
+                           class="form-control"
+                           value="{% now 'Y-m-d' %}"
+                           min="{{ gps_actual.fecha_instalacion|date:'Y-m-d' }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Retirar GPS
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ─── Modal: Retirar TAG ─── -->
+{% if tag_actual %}
+<div class="modal fade" id="modalRetirarTag" tabindex="-1"
+     aria-labelledby="modalRetirarTagLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalRetirarTagLabel">
+                    <i class="bi bi-x-lg me-1"></i>Retirar TAG
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{% url 'vehiculos:tag_retirar' vehiculo.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>
+                        ¿Confirmas retirar el TAG <strong>{{ tag_actual.tag.codigo_tag }}</strong>
+                        de este vehículo?
+                    </p>
+                    <p class="text-muted small">El historial de esta asignación se conservará.</p>
+                    <label for="modal-tag-retiro-fecha" class="form-label fw-semibold">Fecha de retiro</label>
+                    <input type="date"
+                           name="fecha_fin"
+                           id="modal-tag-retiro-fecha"
+                           class="form-control"
+                           value="{% now 'Y-m-d' %}"
+                           min="{{ tag_actual.fecha_inicio|date:'Y-m-d' }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Retirar TAG
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- ─── Modal: Cambiar estatus ─── -->
 <div class="modal fade" id="modalCambiarEstatus" tabindex="-1"

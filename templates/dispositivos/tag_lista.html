@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}TAG de telepeaje{% endblock %}
+
+{% block content %}
+
+<!-- ─── Encabezado ─── -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">TAG de telepeaje</h1>
+        <span class="text-muted small">
+            {{ page_obj.paginator.count }} resultado{{ page_obj.paginator.count|pluralize }}
+        </span>
+    </div>
+    <a href="{% url 'dispositivos:tag_nuevo' %}" class="btn btn-dark">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo TAG
+    </a>
+</div>
+
+<!-- ─── Filtros ─── -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label small mb-1">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control"
+                           placeholder="Código o código corto…">
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Estatus</label>
+                <select name="estatus" class="form-select">
+                    <option value="">Todos</option>
+                    {% for val, label in estatus_choices %}
+                    <option value="{{ val }}" {% if estatus == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Disponibilidad</label>
+                <select name="disponibilidad" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="DISPONIBLE" {% if disponibilidad == "DISPONIBLE" %}selected{% endif %}>Disponible</option>
+                    <option value="ASIGNADO" {% if disponibilidad == "ASIGNADO" %}selected{% endif %}>Asignado</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+                {% if q or estatus or disponibilidad %}
+                <a href="{% url 'dispositivos:tag_lista' %}" class="btn btn-outline-secondary" title="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── Tabla ─── -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-flotilla">
+            <thead class="table-dark">
+                <tr>
+                    <th>Código TAG</th>
+                    <th>Código corto</th>
+                    <th>Estatus</th>
+                    <th>Vehículo actual</th>
+                    <th>Disponibilidad</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tag in page_obj %}
+                <tr onclick="window.location='{% url 'dispositivos:tag_detalle' tag.pk %}'">
+                    <td><code>{{ tag.codigo_tag }}</code></td>
+                    <td>{{ tag.codigo_tag_corto|default:"—" }}</td>
+                    <td>
+                        {% if tag.estatus_tag == "ACTIVO" %}
+                        <span class="badge bg-success">Activo</span>
+                        {% elif tag.estatus_tag == "INACTIVO" %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                        {% elif tag.estatus_tag == "EXTRAVIADO" %}
+                        <span class="badge bg-danger">Extraviado</span>
+                        {% elif tag.estatus_tag == "DANADO" %}
+                        <span class="badge bg-warning text-dark">Dañado</span>
+                        {% else %}
+                        <span class="badge bg-dark">Baja</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% with asig=tag.asignacion_actual_list.0 %}
+                        {% if asig %}
+                        <a href="{% url 'vehiculos:detalle' asig.vehiculo.pk %}"
+                           class="text-decoration-none" onclick="event.stopPropagation()">
+                            {{ asig.vehiculo.numero_interno|default:asig.vehiculo.numero_serie }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% if tag.tiene_asignacion_activa %}
+                        <span class="badge bg-primary-subtle text-primary-emphasis border">Asignado</span>
+                        {% elif tag.estatus_tag == "ACTIVO" %}
+                        <span class="badge bg-success-subtle text-success-emphasis border">Disponible</span>
+                        {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis border">No disponible</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <a href="{% url 'dispositivos:tag_detalle' tag.pk %}"
+                           class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation()">
+                            Ver
+                        </a>
+                        <a href="{% url 'dispositivos:tag_editar' tag.pk %}"
+                           class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="bi bi-search"></i>
+                            No se encontraron TAG con los filtros seleccionados.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ─── Paginación ─── -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            de {{ page_obj.paginator.count }}
+        </small>
+        <nav aria-label="Paginación de TAG">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                    {% if page_obj.has_previous %}
+                    <a class="page-link"
+                       href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        &laquo; Anterior
+                    </a>
+                    {% else %}
+                    <span class="page-link">&laquo; Anterior</span>
+                    {% endif %}
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                    {% if page_obj.has_next %}
+                    <a class="page-link"
+                       href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        Siguiente &raquo;
+                    </a>
+                    {% else %}
+                    <span class="page-link">Siguiente &raquo;</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

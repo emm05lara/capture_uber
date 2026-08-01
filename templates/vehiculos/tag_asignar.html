@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Asignar TAG — {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Asignar TAG</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <!-- Información del vehículo -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <strong>{{ vehiculo.numero_interno|default:vehiculo.numero_serie }}</strong>
+                — {{ vehiculo.modelo_vehiculo }} {{ vehiculo.anio_modelo }}
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-tag me-1"></i>Asignación de TAG
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            <label for="{{ form.tag.id_for_label }}" class="form-label">
+                                {{ form.tag.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.tag.html_name }}"
+                                    id="{{ form.tag.id_for_label }}"
+                                    class="form-select {% if form.tag.errors %}is-invalid{% endif %}">
+                                <option value="">— Selecciona un TAG disponible —</option>
+                                {% for dispositivo in form.tag.field.queryset %}
+                                <option value="{{ dispositivo.pk }}"
+                                    {% if form.tag.value|stringformat:"s" == dispositivo.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ dispositivo.codigo_tag }}{% if dispositivo.codigo_tag_corto %} ({{ dispositivo.codigo_tag_corto }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.tag.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.tag.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if not form.tag.field.queryset %}
+                            <div class="form-text text-warning">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                No hay TAG disponibles en este momento.
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">
+                                {{ form.fecha_inicio.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_inicio.html_name }}"
+                                   id="{{ form.fecha_inicio.id_for_label }}"
+                                   value="{{ form.fecha_inicio.value|date:'Y-m-d' }}"
+                                   class="form-control {% if form.fecha_inicio.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_inicio.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_inicio.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Asignar TAG
+                </button>
+                <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

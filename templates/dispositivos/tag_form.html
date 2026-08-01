@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}{% if es_edicion %}Editar TAG{% else %}Nuevo TAG{% endif %}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'dispositivos:tag_lista' %}">TAG de telepeaje</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if es_edicion %}Editar TAG{% else %}Nuevo TAG{% endif %}
+        </li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-tag me-1"></i>Datos del TAG
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12 col-sm-7">
+                            <label for="{{ form.codigo_tag.id_for_label }}" class="form-label">
+                                {{ form.codigo_tag.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.codigo_tag.html_name }}"
+                                   id="{{ form.codigo_tag.id_for_label }}"
+                                   value="{{ form.codigo_tag.value|default:'' }}"
+                                   maxlength="100"
+                                   placeholder="Ej. TAG-000123"
+                                   class="form-control font-monospace {% if form.codigo_tag.errors %}is-invalid{% endif %}">
+                            {% if form.codigo_tag.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.codigo_tag.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-5">
+                            <label for="{{ form.codigo_tag_corto.id_for_label }}" class="form-label">
+                                {{ form.codigo_tag_corto.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.codigo_tag_corto.html_name }}"
+                                   id="{{ form.codigo_tag_corto.id_for_label }}"
+                                   value="{{ form.codigo_tag_corto.value|default:'' }}"
+                                   maxlength="100"
+                                   placeholder="Ej. T123"
+                                   class="form-control {% if form.codigo_tag_corto.errors %}is-invalid{% endif %}">
+                            {% if form.codigo_tag_corto.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.codigo_tag_corto.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.estatus_tag.id_for_label }}" class="form-label">
+                                {{ form.estatus_tag.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.estatus_tag.html_name }}"
+                                    id="{{ form.estatus_tag.id_for_label }}"
+                                    class="form-select {% if form.estatus_tag.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.estatus_tag.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.estatus_tag.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.estatus_tag.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.estatus_tag.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Guardar
+                </button>
+                {% if es_edicion %}
+                <a href="{% url 'dispositivos:tag_detalle' tag.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+                {% else %}
+                <a href="{% url 'dispositivos:tag_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+                {% endif %}
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

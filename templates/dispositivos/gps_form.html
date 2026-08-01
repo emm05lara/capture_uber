@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}{% if es_edicion %}Editar GPS{% else %}Nuevo GPS{% endif %}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'dispositivos:gps_lista' %}">Dispositivos GPS</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if es_edicion %}Editar GPS{% else %}Nuevo GPS{% endif %}
+        </li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-broadcast me-1"></i>Datos del dispositivo GPS
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12 col-sm-7">
+                            <label for="{{ form.imei.id_for_label }}" class="form-label">
+                                {{ form.imei.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.imei.html_name }}"
+                                   id="{{ form.imei.id_for_label }}"
+                                   value="{{ form.imei.value|default:'' }}"
+                                   maxlength="80"
+                                   placeholder="Ej. 864000000000001"
+                                   class="form-control font-monospace {% if form.imei.errors %}is-invalid{% endif %}">
+                            {% if form.imei.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.imei.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-5">
+                            <label for="{{ form.numero_gps.id_for_label }}" class="form-label">
+                                {{ form.numero_gps.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.numero_gps.html_name }}"
+                                   id="{{ form.numero_gps.id_for_label }}"
+                                   value="{{ form.numero_gps.value|default:'' }}"
+                                   maxlength="80"
+                                   placeholder="Ej. GPS-014"
+                                   class="form-control {% if form.numero_gps.errors %}is-invalid{% endif %}">
+                            {% if form.numero_gps.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.numero_gps.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.estatus_gps.id_for_label }}" class="form-label">
+                                {{ form.estatus_gps.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.estatus_gps.html_name }}"
+                                    id="{{ form.estatus_gps.id_for_label }}"
+                                    class="form-select {% if form.estatus_gps.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.estatus_gps.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.estatus_gps.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.estatus_gps.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.estatus_gps.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Guardar
+                </button>
+                {% if es_edicion %}
+                <a href="{% url 'dispositivos:gps_detalle' gps.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+                {% else %}
+                <a href="{% url 'dispositivos:gps_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+                {% endif %}
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

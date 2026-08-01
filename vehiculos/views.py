@@ -5,12 +5,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Case, IntegerField, Q, Sum, Value, When
+from django.db.models import Case, Exists, IntegerField, OuterRef, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 from django.utils.timezone import localdate
 from django.views.decorators.http import require_POST
 
+from dispositivos.forms import AsignacionTagForm, InstalacionGpsForm, gps_disponibles_qs, tag_disponibles_qs
+from dispositivos.models import AsignacionTag, DispositivoGps, InstalacionGps, TagTelepeaje
 from operacion.forms import AsignacionVehiculoForm
 from operacion.models import AsignacionVehiculo
 from .forms import (
@@ -45,6 +47,16 @@ def dashboard(request):
     con_adeudos = fichas.filter(cantidad_adeudos_pendientes__gt=0)
     monto_adeudos = con_adeudos.aggregate(total=Sum("monto_adeudos_pendientes"))["total"]
 
+    instalacion_gps_activa = InstalacionGps.objects.filter(vehiculo=OuterRef("pk"), fecha_retiro__isnull=True)
+    asignacion_tag_activa = AsignacionTag.objects.filter(vehiculo=OuterRef("pk"), fecha_fin__isnull=True)
+    vehiculos_activos = Vehiculo.objects.filter(estatus_unidad=Vehiculo.EstatusUnidad.ACTIVA)
+    vehiculos_sin_gps = (
+        vehiculos_activos.annotate(tiene_gps=Exists(instalacion_gps_activa)).filter(tiene_gps=False).count()
+    )
+    vehiculos_sin_tag = (
+        vehiculos_activos.annotate(tiene_tag=Exists(asignacion_tag_activa)).filter(tiene_tag=False).count()
+    )
+
     stats = {
         "total": fichas.count(),
         "activos": activos.count(),
@@ -53,6 +65,10 @@ def dashboard(request):
         "rojo": activos.filter(semaforo_documental="ROJO").count(),
         "vehiculos_con_adeudos": con_adeudos.count(),
         "monto_adeudos_pendientes": monto_adeudos or 0,
+        "vehiculos_sin_gps": vehiculos_sin_gps,
+        "vehiculos_sin_tag": vehiculos_sin_tag,
+        "gps_disponibles": gps_disponibles_qs().count(),
+        "tag_disponibles": tag_disponibles_qs().count(),
     }
 
     alertas = (
@@ -273,6 +289,11 @@ def detalle_vehiculo(request, pk):
     adeudos_pendientes_qs = vehiculo.adeudos.filter(estatus_adeudo="PENDIENTE")
     monto_pendiente = adeudos_pendientes_qs.aggregate(total=Sum("monto_adeudo"))["total"]
 
+    instalaciones_gps = list(vehiculo.instalaciones_gps.select_related("gps"))
+    asignaciones_tag = list(vehiculo.asignaciones_tag.select_related("tag"))
+    gps_actual = next((i for i in instalaciones_gps if i.es_actual), None)
+    tag_actual = next((a for a in asignaciones_tag if a.es_actual), None)
+
     return render(request, "vehiculos/detalle.html", {
         "vehiculo": vehiculo,
         "ficha": ficha,
@@ -286,8 +307,10 @@ def detalle_vehiculo(request, pk):
         "adeudos": vehiculo.adeudos.all(),
         "adeudos_pendientes_count": adeudos_pendientes_qs.count(),
         "adeudos_pendientes_monto": monto_pendiente or 0,
-        "instalaciones_gps": vehiculo.instalaciones_gps.select_related("gps"),
-        "asignaciones_tag": vehiculo.asignaciones_tag.select_related("tag"),
+        "instalaciones_gps": instalaciones_gps,
+        "asignaciones_tag": asignaciones_tag,
+        "gps_actual": gps_actual,
+        "tag_actual": tag_actual,
         "observaciones": vehiculo.observaciones.select_related("autor_registro")[:20],
         "hoy": localdate(),
         "limite_amarillo": localdate() + timedelta(days=30),
@@ -979,4 +1002,267 @@ def observacion_editar(request, pk, observacion_pk):
         "vehiculo": vehiculo,
         "observacion": observacion,
         "es_edicion": True,
+    })
+
+
+# ---------------------------------------------------------------------------
+# GPS
+# ---------------------------------------------------------------------------
+
+@login_required
+def gps_instalar(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    instalacion_actual = vehiculo.instalaciones_gps.filter(fecha_retiro__isnull=True).select_related("gps").first()
+
+    if instalacion_actual:
+        messages.info(
+            request,
+            "Este vehículo ya tiene un GPS instalado. Usa \"Cambiar GPS\" o retíralo primero.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    if request.method == "POST":
+        form = InstalacionGpsForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            gps = data["gps"]
+            # Revalida disponibilidad en el servidor: el queryset del formulario
+            # pudo haberse generado antes de que alguien más ocupara este GPS.
+            if InstalacionGps.objects.filter(gps=gps, fecha_retiro__isnull=True).exists():
+                form.add_error("gps", "Este GPS ya está instalado en otro vehículo.")
+            else:
+                try:
+                    with transaction.atomic():
+                        InstalacionGps.objects.create(
+                            vehiculo=vehiculo,
+                            gps=gps,
+                            fecha_instalacion=data.get("fecha_instalacion") or localdate(),
+                        )
+                    messages.success(request, f"GPS {gps.imei} instalado correctamente.")
+                    return redirect("vehiculos:detalle", pk=pk)
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        "No se pudo instalar el GPS. Verifica que siga disponible.",
+                    )
+    else:
+        form = InstalacionGpsForm(vehiculo=vehiculo, initial={"fecha_instalacion": localdate()})
+
+    return render(request, "vehiculos/gps_instalar.html", {"form": form, "vehiculo": vehiculo})
+
+
+@login_required
+@require_POST
+def gps_retirar(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    instalacion = (
+        vehiculo.instalaciones_gps.filter(fecha_retiro__isnull=True).select_related("gps").first()
+    )
+    if not instalacion:
+        messages.error(request, "Este vehículo no tiene un GPS instalado para retirar.")
+        return redirect("vehiculos:detalle", pk=pk)
+
+    fecha_retiro_raw = request.POST.get("fecha_retiro", "").strip()
+    fecha_retiro = parse_date(fecha_retiro_raw) if fecha_retiro_raw else localdate()
+    if fecha_retiro is None or (
+        instalacion.fecha_instalacion and fecha_retiro < instalacion.fecha_instalacion
+    ):
+        messages.error(
+            request,
+            "La fecha de retiro no es válida: no puede ser anterior a la instalación.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    with transaction.atomic():
+        instalacion.fecha_retiro = fecha_retiro
+        instalacion.save(update_fields=["fecha_retiro", "fecha_actualizacion"])
+    messages.success(request, f"GPS {instalacion.gps.imei} retirado correctamente.")
+    return redirect("vehiculos:detalle", pk=pk)
+
+
+@login_required
+def gps_cambiar(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    instalacion_actual = (
+        vehiculo.instalaciones_gps.filter(fecha_retiro__isnull=True).select_related("gps").first()
+    )
+
+    if not instalacion_actual:
+        messages.info(
+            request,
+            "Este vehículo no tiene GPS instalado actualmente. Usa \"Instalar GPS\".",
+        )
+        return redirect("vehiculos:gps_instalar", pk=pk)
+
+    if request.method == "POST":
+        form = InstalacionGpsForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            gps_nuevo = data["gps"]
+            fecha_cambio = data.get("fecha_instalacion") or localdate()
+
+            if instalacion_actual.fecha_instalacion and fecha_cambio < instalacion_actual.fecha_instalacion:
+                form.add_error(
+                    "fecha_instalacion",
+                    "La nueva fecha no puede ser anterior a la instalación actual.",
+                )
+            elif InstalacionGps.objects.filter(gps=gps_nuevo, fecha_retiro__isnull=True).exists():
+                form.add_error("gps", "Este GPS ya está instalado en otro vehículo.")
+            else:
+                try:
+                    with transaction.atomic():
+                        # Se cierra primero la instalación actual: el vehículo no
+                        # puede tener dos GPS activos a la vez. Si la instalación
+                        # nueva falla más abajo, transaction.atomic() revierte
+                        # también este cierre, así que el GPS anterior nunca
+                        # queda retirado sin reemplazo.
+                        instalacion_actual.fecha_retiro = fecha_cambio
+                        instalacion_actual.save(update_fields=["fecha_retiro", "fecha_actualizacion"])
+                        InstalacionGps.objects.create(
+                            vehiculo=vehiculo,
+                            gps=gps_nuevo,
+                            fecha_instalacion=fecha_cambio,
+                        )
+                    messages.success(request, f"GPS cambiado a {gps_nuevo.imei}.")
+                    return redirect("vehiculos:detalle", pk=pk)
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        "No se pudo cambiar el GPS. Es posible que ya no esté disponible.",
+                    )
+    else:
+        form = InstalacionGpsForm(vehiculo=vehiculo)
+
+    return render(request, "vehiculos/gps_cambiar.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "instalacion_actual": instalacion_actual,
+    })
+
+
+# ---------------------------------------------------------------------------
+# TAG de telepeaje
+# ---------------------------------------------------------------------------
+
+@login_required
+def tag_asignar(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    asignacion_actual = vehiculo.asignaciones_tag.filter(fecha_fin__isnull=True).select_related("tag").first()
+
+    if asignacion_actual:
+        messages.info(
+            request,
+            "Este vehículo ya tiene un TAG asignado. Usa \"Cambiar TAG\" o retíralo primero.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    if request.method == "POST":
+        form = AsignacionTagForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            tag = data["tag"]
+            if AsignacionTag.objects.filter(tag=tag, fecha_fin__isnull=True).exists():
+                form.add_error("tag", "Este TAG ya está asignado a otro vehículo.")
+            else:
+                try:
+                    with transaction.atomic():
+                        AsignacionTag.objects.create(
+                            vehiculo=vehiculo,
+                            tag=tag,
+                            fecha_inicio=data.get("fecha_inicio") or localdate(),
+                        )
+                    messages.success(request, f"TAG {tag.codigo_tag} asignado correctamente.")
+                    return redirect("vehiculos:detalle", pk=pk)
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        "No se pudo asignar el TAG. Verifica que siga disponible.",
+                    )
+    else:
+        form = AsignacionTagForm(vehiculo=vehiculo)
+
+    return render(request, "vehiculos/tag_asignar.html", {"form": form, "vehiculo": vehiculo})
+
+
+@login_required
+@require_POST
+def tag_retirar(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    asignacion = vehiculo.asignaciones_tag.filter(fecha_fin__isnull=True).select_related("tag").first()
+    if not asignacion:
+        messages.error(request, "Este vehículo no tiene un TAG asignado para retirar.")
+        return redirect("vehiculos:detalle", pk=pk)
+
+    fecha_fin_raw = request.POST.get("fecha_fin", "").strip()
+    fecha_fin = parse_date(fecha_fin_raw) if fecha_fin_raw else localdate()
+    if fecha_fin is None or (asignacion.fecha_inicio and fecha_fin < asignacion.fecha_inicio):
+        messages.error(
+            request,
+            "La fecha de retiro no es válida: no puede ser anterior al inicio de la asignación.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    with transaction.atomic():
+        asignacion.fecha_fin = fecha_fin
+        asignacion.save(update_fields=["fecha_fin", "fecha_actualizacion"])
+    messages.success(request, f"TAG {asignacion.tag.codigo_tag} retirado correctamente.")
+    return redirect("vehiculos:detalle", pk=pk)
+
+
+@login_required
+def tag_cambiar(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    asignacion_actual = (
+        vehiculo.asignaciones_tag.filter(fecha_fin__isnull=True).select_related("tag").first()
+    )
+
+    if not asignacion_actual:
+        messages.info(
+            request,
+            "Este vehículo no tiene TAG asignado actualmente. Usa \"Asignar TAG\".",
+        )
+        return redirect("vehiculos:tag_asignar", pk=pk)
+
+    if request.method == "POST":
+        form = AsignacionTagForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            tag_nuevo = data["tag"]
+            fecha_cambio = data.get("fecha_inicio") or localdate()
+
+            if asignacion_actual.fecha_inicio and fecha_cambio < asignacion_actual.fecha_inicio:
+                form.add_error(
+                    "fecha_inicio",
+                    "La nueva fecha no puede ser anterior al inicio de la asignación actual.",
+                )
+            elif AsignacionTag.objects.filter(tag=tag_nuevo, fecha_fin__isnull=True).exists():
+                form.add_error("tag", "Este TAG ya está asignado a otro vehículo.")
+            else:
+                try:
+                    with transaction.atomic():
+                        # Igual que con el GPS: se cierra la asignación actual
+                        # antes de crear la nueva, dentro de la misma
+                        # transacción, para que un fallo en la nueva no deje al
+                        # vehículo sin TAG.
+                        asignacion_actual.fecha_fin = fecha_cambio
+                        asignacion_actual.save(update_fields=["fecha_fin", "fecha_actualizacion"])
+                        AsignacionTag.objects.create(
+                            vehiculo=vehiculo,
+                            tag=tag_nuevo,
+                            fecha_inicio=fecha_cambio,
+                        )
+                    messages.success(request, f"TAG cambiado a {tag_nuevo.codigo_tag}.")
+                    return redirect("vehiculos:detalle", pk=pk)
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        "No se pudo cambiar el TAG. Es posible que ya no esté disponible.",
+                    )
+    else:
+        form = AsignacionTagForm(vehiculo=vehiculo)
+
+    return render(request, "vehiculos/tag_cambiar.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "asignacion_actual": asignacion_actual,
     })

@@ -9,6 +9,7 @@ from django.utils.timezone import localdate, timedelta
 
 from actores.models import Aseguradora, TitularPoliza
 from catalogos.models import Color, Marca, ModeloVehiculo
+from dispositivos.models import AsignacionTag, DispositivoGps, InstalacionGps, TagTelepeaje
 from .models import (
     AdeudoVehicular,
     Observacion,
@@ -630,6 +631,189 @@ class Fase5SeguridadTests(TestCase):
             self.assertContains(resp, "csrfmiddlewaretoken")
 
 
+class GpsVehiculoTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="gpsop1", password="clave-segura-123")
+        self.client.login(username="gpsop1", password="clave-segura-123")
+        self.vehiculo = crear_vehiculo("VINGPSVEH000001")
+        self.otro_vehiculo = crear_vehiculo("VINGPSVEH000002")
+        self.gps_libre = DispositivoGps.objects.create(imei="864VEH000000001", estatus_gps=DispositivoGps.Estatus.ACTIVO)
+        self.gps_libre2 = DispositivoGps.objects.create(imei="864VEH000000002", estatus_gps=DispositivoGps.Estatus.ACTIVO)
+
+    def test_instalar_gps_en_vehiculo_libre(self):
+        url = reverse("vehiculos:gps_instalar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"gps": self.gps_libre.pk, "fecha_instalacion": ""})
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        self.assertTrue(
+            InstalacionGps.objects.filter(vehiculo=self.vehiculo, gps=self.gps_libre, fecha_retiro__isnull=True).exists()
+        )
+
+    def test_impide_instalar_gps_ocupado(self):
+        InstalacionGps.objects.create(vehiculo=self.otro_vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        url = reverse("vehiculos:gps_instalar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"gps": self.gps_libre.pk, "fecha_instalacion": ""})
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(InstalacionGps.objects.filter(vehiculo=self.vehiculo).exists())
+
+    def test_impide_segundo_gps_activo_en_mismo_vehiculo(self):
+        InstalacionGps.objects.create(vehiculo=self.vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        url = reverse("vehiculos:gps_instalar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"gps": self.gps_libre2.pk, "fecha_instalacion": ""})
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        self.assertEqual(InstalacionGps.objects.filter(vehiculo=self.vehiculo, fecha_retiro__isnull=True).count(), 1)
+
+    def test_retirar_gps(self):
+        instalacion = InstalacionGps.objects.create(
+            vehiculo=self.vehiculo, gps=self.gps_libre, fecha_instalacion=localdate() - timedelta(days=10), fecha_retiro=None
+        )
+        url = reverse("vehiculos:gps_retirar", args=[self.vehiculo.pk])
+        resp = self.client.post(url)
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        instalacion.refresh_from_db()
+        self.assertIsNotNone(instalacion.fecha_retiro)
+
+    def test_retirar_conserva_historial(self):
+        instalacion = InstalacionGps.objects.create(vehiculo=self.vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        url = reverse("vehiculos:gps_retirar", args=[self.vehiculo.pk])
+        self.client.post(url)
+        self.assertTrue(InstalacionGps.objects.filter(pk=instalacion.pk).exists())
+
+    def test_impide_retirar_sin_instalacion_activa(self):
+        url = reverse("vehiculos:gps_retirar", args=[self.vehiculo.pk])
+        resp = self.client.post(url)
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+
+    def test_retirar_requiere_post(self):
+        InstalacionGps.objects.create(vehiculo=self.vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        url = reverse("vehiculos:gps_retirar", args=[self.vehiculo.pk])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 405)
+
+    def test_cambiar_gps_de_forma_atomica(self):
+        instalacion = InstalacionGps.objects.create(vehiculo=self.vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        url = reverse("vehiculos:gps_cambiar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"gps": self.gps_libre2.pk, "fecha_instalacion": ""})
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        instalacion.refresh_from_db()
+        self.assertIsNotNone(instalacion.fecha_retiro)
+        self.assertTrue(
+            InstalacionGps.objects.filter(vehiculo=self.vehiculo, gps=self.gps_libre2, fecha_retiro__isnull=True).exists()
+        )
+
+    def test_cambiar_gps_no_cierra_anterior_si_falla_nueva(self):
+        instalacion = InstalacionGps.objects.create(vehiculo=self.vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        # El GPS "nuevo" ya está ocupado en otro vehículo: la operación debe fallar
+        # sin cerrar la instalación actual.
+        InstalacionGps.objects.create(vehiculo=self.otro_vehiculo, gps=self.gps_libre2, fecha_retiro=None)
+        url = reverse("vehiculos:gps_cambiar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"gps": self.gps_libre2.pk, "fecha_instalacion": ""})
+        self.assertEqual(resp.status_code, 200)
+        instalacion.refresh_from_db()
+        self.assertIsNone(instalacion.fecha_retiro)
+
+    def test_impide_acceso_cruzado(self):
+        instalacion_ajena = InstalacionGps.objects.create(vehiculo=self.otro_vehiculo, gps=self.gps_libre, fecha_retiro=None)
+        # gps_retirar y gps_cambiar resuelven la instalación desde el propio vehículo
+        # de la URL, así que "retirar" en self.vehiculo no debe afectar la ajena.
+        url = reverse("vehiculos:gps_retirar", args=[self.vehiculo.pk])
+        self.client.post(url)
+        instalacion_ajena.refresh_from_db()
+        self.assertIsNone(instalacion_ajena.fecha_retiro)
+
+    def test_requiere_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse("vehiculos:gps_instalar", args=[self.vehiculo.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp.url)
+
+
+class TagVehiculoTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="tagop1", password="clave-segura-123")
+        self.client.login(username="tagop1", password="clave-segura-123")
+        self.vehiculo = crear_vehiculo("VINTAGVEH000001")
+        self.otro_vehiculo = crear_vehiculo("VINTAGVEH000002")
+        self.tag_libre = TagTelepeaje.objects.create(codigo_tag="TAG-VEH-001", estatus_tag=TagTelepeaje.Estatus.ACTIVO)
+        self.tag_libre2 = TagTelepeaje.objects.create(codigo_tag="TAG-VEH-002", estatus_tag=TagTelepeaje.Estatus.ACTIVO)
+
+    def test_asignar_tag_a_vehiculo_libre(self):
+        url = reverse("vehiculos:tag_asignar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"tag": self.tag_libre.pk, "fecha_inicio": ""})
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        self.assertTrue(
+            AsignacionTag.objects.filter(vehiculo=self.vehiculo, tag=self.tag_libre, fecha_fin__isnull=True).exists()
+        )
+
+    def test_impide_asignar_tag_ocupado(self):
+        AsignacionTag.objects.create(vehiculo=self.otro_vehiculo, tag=self.tag_libre, fecha_fin=None)
+        url = reverse("vehiculos:tag_asignar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"tag": self.tag_libre.pk, "fecha_inicio": ""})
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(AsignacionTag.objects.filter(vehiculo=self.vehiculo).exists())
+
+    def test_impide_segundo_tag_activo_en_mismo_vehiculo(self):
+        AsignacionTag.objects.create(vehiculo=self.vehiculo, tag=self.tag_libre, fecha_fin=None)
+        url = reverse("vehiculos:tag_asignar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"tag": self.tag_libre2.pk, "fecha_inicio": ""})
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        self.assertEqual(AsignacionTag.objects.filter(vehiculo=self.vehiculo, fecha_fin__isnull=True).count(), 1)
+
+    def test_retirar_tag(self):
+        asignacion = AsignacionTag.objects.create(
+            vehiculo=self.vehiculo, tag=self.tag_libre, fecha_inicio=localdate() - timedelta(days=10), fecha_fin=None
+        )
+        url = reverse("vehiculos:tag_retirar", args=[self.vehiculo.pk])
+        resp = self.client.post(url)
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        asignacion.refresh_from_db()
+        self.assertIsNotNone(asignacion.fecha_fin)
+
+    def test_retirar_conserva_historial(self):
+        asignacion = AsignacionTag.objects.create(vehiculo=self.vehiculo, tag=self.tag_libre, fecha_fin=None)
+        url = reverse("vehiculos:tag_retirar", args=[self.vehiculo.pk])
+        self.client.post(url)
+        self.assertTrue(AsignacionTag.objects.filter(pk=asignacion.pk).exists())
+
+    def test_retirar_requiere_post(self):
+        AsignacionTag.objects.create(vehiculo=self.vehiculo, tag=self.tag_libre, fecha_fin=None)
+        url = reverse("vehiculos:tag_retirar", args=[self.vehiculo.pk])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 405)
+
+    def test_cambiar_tag_de_forma_atomica(self):
+        asignacion = AsignacionTag.objects.create(vehiculo=self.vehiculo, tag=self.tag_libre, fecha_fin=None)
+        url = reverse("vehiculos:tag_cambiar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"tag": self.tag_libre2.pk, "fecha_inicio": ""})
+        self.assertRedirects(resp, reverse("vehiculos:detalle", args=[self.vehiculo.pk]))
+        asignacion.refresh_from_db()
+        self.assertIsNotNone(asignacion.fecha_fin)
+        self.assertTrue(
+            AsignacionTag.objects.filter(vehiculo=self.vehiculo, tag=self.tag_libre2, fecha_fin__isnull=True).exists()
+        )
+
+    def test_cambiar_tag_no_cierra_anterior_si_falla_nueva(self):
+        asignacion = AsignacionTag.objects.create(vehiculo=self.vehiculo, tag=self.tag_libre, fecha_fin=None)
+        AsignacionTag.objects.create(vehiculo=self.otro_vehiculo, tag=self.tag_libre2, fecha_fin=None)
+        url = reverse("vehiculos:tag_cambiar", args=[self.vehiculo.pk])
+        resp = self.client.post(url, {"tag": self.tag_libre2.pk, "fecha_inicio": ""})
+        self.assertEqual(resp.status_code, 200)
+        asignacion.refresh_from_db()
+        self.assertIsNone(asignacion.fecha_fin)
+
+    def test_impide_acceso_cruzado(self):
+        asignacion_ajena = AsignacionTag.objects.create(vehiculo=self.otro_vehiculo, tag=self.tag_libre, fecha_fin=None)
+        url = reverse("vehiculos:tag_retirar", args=[self.vehiculo.pk])
+        self.client.post(url)
+        asignacion_ajena.refresh_from_db()
+        self.assertIsNone(asignacion_ajena.fecha_fin)
+
+    def test_requiere_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse("vehiculos:tag_asignar", args=[self.vehiculo.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp.url)
+
+
 class SeedDemoDataIdempotenciaTests(TestCase):
     """El comando debe poder ejecutarse muchas veces (incluso en días
     distintos) sin ir acumulando registros demo duplicados."""
@@ -643,6 +827,10 @@ class SeedDemoDataIdempotenciaTests(TestCase):
             "tenencias": Tenencia.objects.filter(**demo).count(),
             "adeudos": AdeudoVehicular.objects.filter(**demo).count(),
             "observaciones": Observacion.objects.filter(**demo).count(),
+            "instalaciones_gps": InstalacionGps.objects.filter(**demo).count(),
+            "asignaciones_tag": AsignacionTag.objects.filter(**demo).count(),
+            "gps_demo": DispositivoGps.objects.filter(imei__startswith="864DEMO").count(),
+            "tags_demo": TagTelepeaje.objects.filter(codigo_tag__startswith="TAG-DEMO").count(),
         }
 
     def test_ejecutar_el_seed_varios_dias_no_duplica_tarjetas(self):
@@ -652,6 +840,10 @@ class SeedDemoDataIdempotenciaTests(TestCase):
         self.assertGreater(primera_corrida["tenencias"], 0)
         self.assertGreater(primera_corrida["adeudos"], 0)
         self.assertGreater(primera_corrida["observaciones"], 0)
+        self.assertGreater(primera_corrida["instalaciones_gps"], 0)
+        self.assertGreater(primera_corrida["asignaciones_tag"], 0)
+        self.assertGreater(primera_corrida["gps_demo"], 0)
+        self.assertGreater(primera_corrida["tags_demo"], 0)
 
         # Simula que el comando se vuelve a ejecutar 10 días después: las
         # fechas relativas a "hoy" cambian, pero la identidad de cada

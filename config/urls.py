@@ -7,4 +7,5 @@ urlpatterns = [
     path("accounts/", include("django.contrib.auth.urls")),
     path("", include("vehiculos.urls")),
     path("", include("actores.urls")),
+    path("", include("dispositivos.urls")),
 ]

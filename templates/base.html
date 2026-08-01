@@ -67,6 +67,24 @@
                         <i class="bi bi-people me-1"></i>Conductores
                     </a>
                 </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if request.resolver_match.app_name == 'dispositivos' %}active{% endif %}"
+                       href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-hdd-network me-1"></i>Dispositivos
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="{% url 'dispositivos:gps_lista' %}">
+                                <i class="bi bi-broadcast me-1"></i>GPS
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'dispositivos:tag_lista' %}">
+                                <i class="bi bi-tag me-1"></i>TAG de telepeaje
+                            </a>
+                        </li>
+                    </ul>
+                </li>
             </ul>
 
             {% if user.is_authenticated %}
