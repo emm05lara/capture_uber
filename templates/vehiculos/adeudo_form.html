@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}{% if es_edicion %}Editar adeudo{% else %}Registrar adeudo{% endif %} — {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if es_edicion %}Editar adeudo{% else %}Registrar adeudo{% endif %}
+        </li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <!-- Información del vehículo -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <strong>{{ vehiculo.numero_interno|default:vehiculo.numero_serie }}</strong>
+                — {{ vehiculo.modelo_vehiculo }} {{ vehiculo.anio_modelo }}
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-currency-dollar me-1"></i>Datos del adeudo
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12 col-sm-7">
+                            <label for="{{ form.tipo_adeudo.id_for_label }}" class="form-label">
+                                {{ form.tipo_adeudo.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text"
+                                   name="{{ form.tipo_adeudo.html_name }}"
+                                   id="{{ form.tipo_adeudo.id_for_label }}"
+                                   value="{{ form.tipo_adeudo.value|default:'' }}"
+                                   maxlength="80"
+                                   placeholder="Ej. Multa de tránsito"
+                                   class="form-control {% if form.tipo_adeudo.errors %}is-invalid{% endif %}">
+                            {% if form.tipo_adeudo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.tipo_adeudo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-5">
+                            <label for="{{ form.monto_adeudo.id_for_label }}" class="form-label">
+                                {{ form.monto_adeudo.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="number" step="0.01"
+                                   name="{{ form.monto_adeudo.html_name }}"
+                                   id="{{ form.monto_adeudo.id_for_label }}"
+                                   value="{{ form.monto_adeudo.value|default_if_none:'' }}"
+                                   class="form-control {% if form.monto_adeudo.errors %}is-invalid{% endif %}">
+                            {% if form.monto_adeudo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.monto_adeudo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.estatus_adeudo.id_for_label }}" class="form-label">
+                                {{ form.estatus_adeudo.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.estatus_adeudo.html_name }}"
+                                    id="{{ form.estatus_adeudo.id_for_label }}"
+                                    class="form-select {% if form.estatus_adeudo.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.estatus_adeudo.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.estatus_adeudo.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.estatus_adeudo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.estatus_adeudo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Para marcar como pagado o cancelar un adeudo existente,
+                                usa los botones correspondientes en el detalle del vehículo.
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_consulta.id_for_label }}" class="form-label">
+                                {{ form.fecha_consulta.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_consulta.html_name }}"
+                                   id="{{ form.fecha_consulta.id_for_label }}"
+                                   value="{{ form.fecha_consulta.value|date:'Y-m-d' }}"
+                                   class="form-control {% if form.fecha_consulta.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_consulta.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_consulta.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label for="{{ form.observacion_adeudo.id_for_label }}" class="form-label">
+                                {{ form.observacion_adeudo.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <textarea name="{{ form.observacion_adeudo.html_name }}"
+                                      id="{{ form.observacion_adeudo.id_for_label }}"
+                                      rows="3"
+                                      placeholder="Detalles adicionales (opcional)"
+                                      class="form-control {% if form.observacion_adeudo.errors %}is-invalid{% endif %}">{{ form.observacion_adeudo.value|default:'' }}</textarea>
+                            {% if form.observacion_adeudo.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.observacion_adeudo.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Guardar
+                </button>
+                <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

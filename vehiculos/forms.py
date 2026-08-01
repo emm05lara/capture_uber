@@ -1,8 +1,18 @@
 from django import forms
+from django.utils.timezone import localdate
 
 from actores.models import Aseguradora, TitularPoliza
 from catalogos.models import Color, EntidadFederativa, ModeloVehiculo
-from .models import Emplacamiento, PolizaSeguro, TarjetaCirculacion, Vehiculo, VerificacionVehicular
+from .models import (
+    AdeudoVehicular,
+    Emplacamiento,
+    Observacion,
+    PolizaSeguro,
+    TarjetaCirculacion,
+    Tenencia,
+    Vehiculo,
+    VerificacionVehicular,
+)
 
 
 class NuevoVehiculoForm(forms.Form):
@@ -320,3 +330,149 @@ class TarjetaCirculacionForm(forms.Form):
                 "La vigencia no puede ser anterior a la fecha de emisión.",
             )
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Tenencia (alta y edición, siempre ligada a un vehículo)
+# ---------------------------------------------------------------------------
+
+class TenenciaForm(forms.Form):
+    def __init__(self, *args, vehiculo=None, tenencia_pk=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vehiculo = vehiculo
+        self.tenencia_pk = tenencia_pk
+
+    anio_fiscal = forms.IntegerField(
+        label="Año fiscal",
+        min_value=2000,
+        widget=forms.NumberInput(attrs={"placeholder": "Ej. 2026"}),
+    )
+    estatus_tenencia = forms.ChoiceField(
+        label="Estatus",
+        choices=Tenencia.EstatusTenencia.choices,
+    )
+    monto_tenencia = forms.DecimalField(
+        label="Monto",
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={"placeholder": "Ej. 2500.00", "step": "0.01"}),
+    )
+    fecha_pago = forms.DateField(
+        label="Fecha de pago",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+    def clean_anio_fiscal(self):
+        anio = self.cleaned_data["anio_fiscal"]
+        limite_superior = localdate().year + 1
+        if anio > limite_superior:
+            raise forms.ValidationError(
+                f"El año fiscal no puede ser posterior a {limite_superior}."
+            )
+        return anio
+
+    def clean(self):
+        cleaned = super().clean()
+        anio = cleaned.get("anio_fiscal")
+        estatus = cleaned.get("estatus_tenencia")
+        fecha_pago = cleaned.get("fecha_pago")
+
+        if anio and self.vehiculo:
+            qs = Tenencia.objects.filter(vehiculo=self.vehiculo, anio_fiscal=anio)
+            if self.tenencia_pk:
+                qs = qs.exclude(pk=self.tenencia_pk)
+            if qs.exists():
+                self.add_error(
+                    "anio_fiscal",
+                    "Ya existe una tenencia registrada para este vehículo en ese año fiscal.",
+                )
+
+        if estatus == Tenencia.EstatusTenencia.PAGADA and not fecha_pago:
+            self.add_error(
+                "fecha_pago",
+                "Indica la fecha de pago para marcar la tenencia como pagada.",
+            )
+        return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Adeudo vehicular (alta y edición, siempre ligado a un vehículo)
+# ---------------------------------------------------------------------------
+
+class AdeudoVehicularForm(forms.Form):
+    # "Pagado" y "Cancelado" solo se registran desde las acciones dedicadas
+    # (marcar como pagado / cancelar), nunca directamente desde este formulario,
+    # para que esas transiciones queden siempre acompañadas de su propia
+    # validación (no permitir pagar/cancelar dos veces, etc.).
+    ESTATUS_CAPTURABLES = [
+        (AdeudoVehicular.EstatusAdeudo.PENDIENTE, "Pendiente"),
+        (AdeudoVehicular.EstatusAdeudo.SIN_ADEUDO, "Sin adeudo"),
+        (AdeudoVehicular.EstatusAdeudo.DESCONOCIDO, "Desconocido"),
+    ]
+
+    tipo_adeudo = forms.CharField(
+        label="Tipo de adeudo",
+        max_length=80,
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Multa de tránsito"}),
+    )
+    monto_adeudo = forms.DecimalField(
+        label="Monto",
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={"placeholder": "Ej. 1200.00", "step": "0.01"}),
+    )
+    estatus_adeudo = forms.ChoiceField(
+        label="Estatus",
+        choices=ESTATUS_CAPTURABLES,
+    )
+    fecha_consulta = forms.DateField(
+        label="Fecha de consulta",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    observacion_adeudo = forms.CharField(
+        label="Observación",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Detalles adicionales (opcional)"}),
+    )
+
+    def clean_tipo_adeudo(self):
+        return self.cleaned_data["tipo_adeudo"].strip()
+
+
+# ---------------------------------------------------------------------------
+# Observación / bitácora (alta y edición, siempre ligada a un vehículo)
+# ---------------------------------------------------------------------------
+
+class ObservacionForm(forms.Form):
+    # Los tipos GPS, SEGURO y OPERATIVA requieren en el modelo una referencia
+    # a un registro relacionado (instalación GPS, póliza o asignación). Este
+    # formulario de bitácora general no captura esos identificadores técnicos,
+    # así que solo ofrece los tipos que no dependen de una referencia adicional.
+    TIPOS_CAPTURABLES = [
+        (Observacion.TipoObservacion.GENERAL, "General"),
+        (Observacion.TipoObservacion.MECANICA, "Mecánica"),
+        (Observacion.TipoObservacion.ADEUDO, "Adeudo"),
+        (Observacion.TipoObservacion.SINIESTRO, "Siniestro"),
+        (Observacion.TipoObservacion.DOCUMENTO, "Documento"),
+    ]
+
+    tipo_observacion = forms.ChoiceField(
+        label="Tipo",
+        choices=TIPOS_CAPTURABLES,
+    )
+    texto_observacion = forms.CharField(
+        label="Observación",
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Describe la observación…"}),
+    )
+
+    def clean_texto_observacion(self):
+        texto = self.cleaned_data["texto_observacion"].strip()
+        if not texto:
+            raise forms.ValidationError("Escribe una observación; no puede quedar vacía.")
+        return texto

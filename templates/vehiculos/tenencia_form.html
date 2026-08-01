@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}{% if es_edicion %}Editar tenencia{% else %}Registrar tenencia{% endif %} — {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}{% endblock %}
+
+{% block content %}
+
+<!-- ─── Breadcrumb ─── -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'vehiculos:lista' %}">Vehículos</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'vehiculos:detalle' vehiculo.pk %}">
+                {{ vehiculo.numero_interno|default:vehiculo.numero_serie }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if es_edicion %}Editar tenencia{% else %}Registrar tenencia{% endif %}
+        </li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+
+        <!-- Información del vehículo -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <strong>{{ vehiculo.numero_interno|default:vehiculo.numero_serie }}</strong>
+                — {{ vehiculo.modelo_vehiculo }} {{ vehiculo.anio_modelo }}
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-3">
+                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-cash-coin me-1"></i>Datos de la tenencia
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.anio_fiscal.id_for_label }}" class="form-label">
+                                {{ form.anio_fiscal.label }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="number"
+                                   name="{{ form.anio_fiscal.html_name }}"
+                                   id="{{ form.anio_fiscal.id_for_label }}"
+                                   value="{{ form.anio_fiscal.value|default_if_none:'' }}"
+                                   class="form-control {% if form.anio_fiscal.errors %}is-invalid{% endif %}">
+                            {% if form.anio_fiscal.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.anio_fiscal.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.estatus_tenencia.id_for_label }}" class="form-label">
+                                {{ form.estatus_tenencia.label }} <span class="text-danger">*</span>
+                            </label>
+                            <select name="{{ form.estatus_tenencia.html_name }}"
+                                    id="{{ form.estatus_tenencia.id_for_label }}"
+                                    class="form-select {% if form.estatus_tenencia.errors %}is-invalid{% endif %}">
+                                {% for val, etiqueta in form.estatus_tenencia.field.choices %}
+                                <option value="{{ val }}"
+                                    {% if form.estatus_tenencia.value == val %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.estatus_tenencia.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.estatus_tenencia.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.monto_tenencia.id_for_label }}" class="form-label">
+                                {{ form.monto_tenencia.label }}
+                                <span class="text-muted small">(opcional)</span>
+                            </label>
+                            <input type="number" step="0.01"
+                                   name="{{ form.monto_tenencia.html_name }}"
+                                   id="{{ form.monto_tenencia.id_for_label }}"
+                                   value="{{ form.monto_tenencia.value|default_if_none:'' }}"
+                                   class="form-control {% if form.monto_tenencia.errors %}is-invalid{% endif %}">
+                            {% if form.monto_tenencia.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.monto_tenencia.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-sm-6">
+                            <label for="{{ form.fecha_pago.id_for_label }}" class="form-label">
+                                {{ form.fecha_pago.label }}
+                                <span class="text-muted small">(obligatoria si el estatus es Pagada)</span>
+                            </label>
+                            <input type="date"
+                                   name="{{ form.fecha_pago.html_name }}"
+                                   id="{{ form.fecha_pago.id_for_label }}"
+                                   value="{{ form.fecha_pago.value|date:'Y-m-d' }}"
+                                   class="form-control {% if form.fecha_pago.errors %}is-invalid{% endif %}">
+                            {% if form.fecha_pago.errors %}
+                            <div class="invalid-feedback">
+                                {% for e in form.fecha_pago.errors %}{{ e }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Guardar
+                </button>
+                <a href="{% url 'vehiculos:detalle' vehiculo.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

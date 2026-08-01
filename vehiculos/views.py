@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, IntegerField, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 from django.utils.timezone import localdate
@@ -14,17 +14,23 @@ from django.views.decorators.http import require_POST
 from operacion.forms import AsignacionVehiculoForm
 from operacion.models import AsignacionVehiculo
 from .forms import (
+    AdeudoVehicularForm,
     EditarVehiculoForm,
     NuevaPlacaForm,
     NuevoVehiculoForm,
+    ObservacionForm,
     PolizaSeguroForm,
     TarjetaCirculacionForm,
+    TenenciaForm,
     VerificacionVehicularForm,
 )
 from .models import (
+    AdeudoVehicular,
     Emplacamiento,
+    Observacion,
     PolizaSeguro,
     TarjetaCirculacion,
+    Tenencia,
     Vehiculo,
     VerificacionVehicular,
     VwFichaVehiculo,
@@ -36,12 +42,17 @@ def dashboard(request):
     fichas = VwFichaVehiculo.objects.all()
     activos = fichas.filter(estatus_unidad="ACTIVA")
 
+    con_adeudos = fichas.filter(cantidad_adeudos_pendientes__gt=0)
+    monto_adeudos = con_adeudos.aggregate(total=Sum("monto_adeudos_pendientes"))["total"]
+
     stats = {
         "total": fichas.count(),
         "activos": activos.count(),
         "verde": activos.filter(semaforo_documental="VERDE").count(),
         "amarillo": activos.filter(semaforo_documental="AMARILLO").count(),
         "rojo": activos.filter(semaforo_documental="ROJO").count(),
+        "vehiculos_con_adeudos": con_adeudos.count(),
+        "monto_adeudos_pendientes": monto_adeudos or 0,
     }
 
     alertas = (
@@ -259,6 +270,9 @@ def detalle_vehiculo(request, pk):
     )
     asignacion_actual = next((a for a in asignaciones_vehiculo if a.es_actual), None)
 
+    adeudos_pendientes_qs = vehiculo.adeudos.filter(estatus_adeudo="PENDIENTE")
+    monto_pendiente = adeudos_pendientes_qs.aggregate(total=Sum("monto_adeudo"))["total"]
+
     return render(request, "vehiculos/detalle.html", {
         "vehiculo": vehiculo,
         "ficha": ficha,
@@ -270,7 +284,8 @@ def detalle_vehiculo(request, pk):
         "tenencias": vehiculo.tenencias.all(),
         "emplacamientos": vehiculo.emplacamientos.select_related("entidad_federativa"),
         "adeudos": vehiculo.adeudos.all(),
-        "adeudos_pendientes_count": vehiculo.adeudos.filter(estatus_adeudo="PENDIENTE").count(),
+        "adeudos_pendientes_count": adeudos_pendientes_qs.count(),
+        "adeudos_pendientes_monto": monto_pendiente or 0,
         "instalaciones_gps": vehiculo.instalaciones_gps.select_related("gps"),
         "asignaciones_tag": vehiculo.asignaciones_tag.select_related("tag"),
         "observaciones": vehiculo.observaciones.select_related("autor_registro")[:20],
@@ -674,5 +689,294 @@ def tarjeta_editar(request, pk, tarjeta_pk):
         "form": form,
         "vehiculo": vehiculo,
         "tarjeta": tarjeta,
+        "es_edicion": True,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Tenencias
+# ---------------------------------------------------------------------------
+
+@login_required
+def tenencia_nueva(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+
+    if request.method == "POST":
+        form = TenenciaForm(request.POST, vehiculo=vehiculo)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    Tenencia.objects.create(
+                        vehiculo=vehiculo,
+                        anio_fiscal=data["anio_fiscal"],
+                        estatus_tenencia=data["estatus_tenencia"],
+                        monto_tenencia=data.get("monto_tenencia"),
+                        fecha_pago=data.get("fecha_pago"),
+                    )
+                messages.success(
+                    request,
+                    f"Tenencia {data['anio_fiscal']} registrada correctamente.",
+                )
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo registrar la tenencia. Ya existe un registro para "
+                    "este vehículo en ese año fiscal.",
+                )
+    else:
+        form = TenenciaForm(vehiculo=vehiculo)
+
+    return render(request, "vehiculos/tenencia_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "es_edicion": False,
+    })
+
+
+@login_required
+def tenencia_editar(request, pk, tenencia_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    tenencia = get_object_or_404(Tenencia, pk=tenencia_pk, vehiculo=vehiculo)
+
+    if request.method == "POST":
+        form = TenenciaForm(request.POST, vehiculo=vehiculo, tenencia_pk=tenencia.pk)
+        if form.is_valid():
+            data = form.cleaned_data
+            tenencia.anio_fiscal = data["anio_fiscal"]
+            tenencia.estatus_tenencia = data["estatus_tenencia"]
+            tenencia.monto_tenencia = data.get("monto_tenencia")
+            tenencia.fecha_pago = data.get("fecha_pago")
+            try:
+                with transaction.atomic():
+                    tenencia.save()
+                messages.success(request, "Tenencia actualizada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "No se pudo actualizar la tenencia. Ya existe un registro para "
+                    "este vehículo en ese año fiscal.",
+                )
+    else:
+        form = TenenciaForm(
+            vehiculo=vehiculo,
+            tenencia_pk=tenencia.pk,
+            initial={
+                "anio_fiscal": tenencia.anio_fiscal,
+                "estatus_tenencia": tenencia.estatus_tenencia,
+                "monto_tenencia": tenencia.monto_tenencia,
+                "fecha_pago": tenencia.fecha_pago,
+            },
+        )
+
+    return render(request, "vehiculos/tenencia_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "tenencia": tenencia,
+        "es_edicion": True,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Adeudos vehiculares
+# ---------------------------------------------------------------------------
+
+@login_required
+def adeudo_nuevo(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+
+    if request.method == "POST":
+        form = AdeudoVehicularForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    AdeudoVehicular.objects.create(
+                        vehiculo=vehiculo,
+                        tipo_adeudo=data["tipo_adeudo"],
+                        monto_adeudo=data.get("monto_adeudo"),
+                        estatus_adeudo=data["estatus_adeudo"],
+                        fecha_consulta=data.get("fecha_consulta"),
+                        observacion_adeudo=data.get("observacion_adeudo") or None,
+                    )
+                messages.success(request, "Adeudo registrado correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(request, "No se pudo registrar el adeudo. Intenta nuevamente.")
+    else:
+        form = AdeudoVehicularForm(initial={"estatus_adeudo": AdeudoVehicular.EstatusAdeudo.PENDIENTE})
+
+    return render(request, "vehiculos/adeudo_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "es_edicion": False,
+    })
+
+
+@login_required
+def adeudo_editar(request, pk, adeudo_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    adeudo = get_object_or_404(AdeudoVehicular, pk=adeudo_pk, vehiculo=vehiculo)
+
+    if adeudo.estatus_adeudo in (
+        AdeudoVehicular.EstatusAdeudo.PAGADO,
+        AdeudoVehicular.EstatusAdeudo.CANCELADO,
+    ):
+        messages.info(
+            request,
+            "Este adeudo ya está pagado o cancelado y no se puede editar. "
+            "El historial se conserva tal como quedó.",
+        )
+        return redirect("vehiculos:detalle", pk=pk)
+
+    if request.method == "POST":
+        form = AdeudoVehicularForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            adeudo.tipo_adeudo = data["tipo_adeudo"]
+            adeudo.monto_adeudo = data.get("monto_adeudo")
+            adeudo.estatus_adeudo = data["estatus_adeudo"]
+            adeudo.fecha_consulta = data.get("fecha_consulta")
+            adeudo.observacion_adeudo = data.get("observacion_adeudo") or None
+            try:
+                with transaction.atomic():
+                    adeudo.save()
+                messages.success(request, "Adeudo actualizado correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(request, "No se pudo actualizar el adeudo. Intenta nuevamente.")
+    else:
+        form = AdeudoVehicularForm(initial={
+            "tipo_adeudo": adeudo.tipo_adeudo,
+            "monto_adeudo": adeudo.monto_adeudo,
+            "estatus_adeudo": adeudo.estatus_adeudo,
+            "fecha_consulta": adeudo.fecha_consulta,
+            "observacion_adeudo": adeudo.observacion_adeudo,
+        })
+
+    return render(request, "vehiculos/adeudo_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "adeudo": adeudo,
+        "es_edicion": True,
+    })
+
+
+@login_required
+@require_POST
+def adeudo_pagar(request, pk, adeudo_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    adeudo = get_object_or_404(AdeudoVehicular, pk=adeudo_pk, vehiculo=vehiculo)
+
+    if adeudo.estatus_adeudo in (
+        AdeudoVehicular.EstatusAdeudo.PAGADO,
+        AdeudoVehicular.EstatusAdeudo.CANCELADO,
+    ):
+        messages.error(request, "Este adeudo ya está pagado o cancelado.")
+        return redirect("vehiculos:detalle", pk=pk)
+
+    with transaction.atomic():
+        adeudo.estatus_adeudo = AdeudoVehicular.EstatusAdeudo.PAGADO
+        adeudo.save(update_fields=["estatus_adeudo", "fecha_actualizacion"])
+    messages.success(request, f"Adeudo «{adeudo.tipo_adeudo}» marcado como pagado.")
+    return redirect("vehiculos:detalle", pk=pk)
+
+
+@login_required
+@require_POST
+def adeudo_cancelar(request, pk, adeudo_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    adeudo = get_object_or_404(AdeudoVehicular, pk=adeudo_pk, vehiculo=vehiculo)
+
+    if adeudo.estatus_adeudo in (
+        AdeudoVehicular.EstatusAdeudo.PAGADO,
+        AdeudoVehicular.EstatusAdeudo.CANCELADO,
+    ):
+        messages.error(request, "Este adeudo ya está pagado o cancelado.")
+        return redirect("vehiculos:detalle", pk=pk)
+
+    with transaction.atomic():
+        adeudo.estatus_adeudo = AdeudoVehicular.EstatusAdeudo.CANCELADO
+        adeudo.save(update_fields=["estatus_adeudo", "fecha_actualizacion"])
+    messages.success(request, f"Adeudo «{adeudo.tipo_adeudo}» cancelado.")
+    return redirect("vehiculos:detalle", pk=pk)
+
+
+# ---------------------------------------------------------------------------
+# Observaciones / bitácora
+# ---------------------------------------------------------------------------
+
+@login_required
+def observacion_nueva(request, pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+
+    if request.method == "POST":
+        form = ObservacionForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            try:
+                with transaction.atomic():
+                    Observacion.objects.create(
+                        vehiculo=vehiculo,
+                        tipo_observacion=data["tipo_observacion"],
+                        texto_observacion=data["texto_observacion"],
+                        autor_registro=request.user,
+                    )
+                messages.success(request, "Observación registrada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(request, "No se pudo registrar la observación. Intenta nuevamente.")
+    else:
+        form = ObservacionForm()
+
+    return render(request, "vehiculos/observacion_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "es_edicion": False,
+    })
+
+
+@login_required
+def observacion_editar(request, pk, observacion_pk):
+    vehiculo = get_object_or_404(Vehiculo, pk=pk)
+    observacion = get_object_or_404(Observacion, pk=observacion_pk, vehiculo=vehiculo)
+
+    # Política de edición: solo quien la registró puede editarla. Las
+    # observaciones sin autor (datos demo o capturadas antes de esta fase)
+    # se consideran de uso común y cualquier persona autenticada puede
+    # corregirlas.
+    puede_editar = (
+        observacion.autor_registro_id is None
+        or observacion.autor_registro_id == request.user.id
+    )
+    if not puede_editar:
+        messages.info(request, "Solo quien registró esta observación puede editarla.")
+        return redirect("vehiculos:detalle", pk=pk)
+
+    if request.method == "POST":
+        form = ObservacionForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            observacion.tipo_observacion = data["tipo_observacion"]
+            observacion.texto_observacion = data["texto_observacion"]
+            try:
+                with transaction.atomic():
+                    observacion.save()
+                messages.success(request, "Observación actualizada correctamente.")
+                return redirect("vehiculos:detalle", pk=pk)
+            except IntegrityError:
+                messages.error(request, "No se pudo actualizar la observación. Intenta nuevamente.")
+    else:
+        form = ObservacionForm(initial={
+            "tipo_observacion": observacion.tipo_observacion,
+            "texto_observacion": observacion.texto_observacion,
+        })
+
+    return render(request, "vehiculos/observacion_form.html", {
+        "form": form,
+        "vehiculo": vehiculo,
+        "observacion": observacion,
         "es_edicion": True,
     })

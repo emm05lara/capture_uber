@@ -25,4 +25,20 @@ urlpatterns = [
     ),
     path("vehiculos/<int:pk>/tarjetas/nueva/", views.tarjeta_nueva, name="tarjeta_nueva"),
     path("vehiculos/<int:pk>/tarjetas/<int:tarjeta_pk>/editar/", views.tarjeta_editar, name="tarjeta_editar"),
+    path("vehiculos/<int:pk>/tenencias/nueva/", views.tenencia_nueva, name="tenencia_nueva"),
+    path(
+        "vehiculos/<int:pk>/tenencias/<int:tenencia_pk>/editar/",
+        views.tenencia_editar,
+        name="tenencia_editar",
+    ),
+    path("vehiculos/<int:pk>/adeudos/nuevo/", views.adeudo_nuevo, name="adeudo_nuevo"),
+    path("vehiculos/<int:pk>/adeudos/<int:adeudo_pk>/editar/", views.adeudo_editar, name="adeudo_editar"),
+    path("vehiculos/<int:pk>/adeudos/<int:adeudo_pk>/pagar/", views.adeudo_pagar, name="adeudo_pagar"),
+    path("vehiculos/<int:pk>/adeudos/<int:adeudo_pk>/cancelar/", views.adeudo_cancelar, name="adeudo_cancelar"),
+    path("vehiculos/<int:pk>/observaciones/nueva/", views.observacion_nueva, name="observacion_nueva"),
+    path(
+        "vehiculos/<int:pk>/observaciones/<int:observacion_pk>/editar/",
+        views.observacion_editar,
+        name="observacion_editar",
+    ),
 ]

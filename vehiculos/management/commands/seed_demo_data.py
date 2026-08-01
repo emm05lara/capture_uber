@@ -553,17 +553,30 @@ class Command(BaseCommand):
     # ─── Tenencias ───────────────────────────────────────────────────────────
 
     def _tenencias(self, vehiculos, hoy):
-        anio = hoy.year
+        anio_actual = hoy.year
         for num_int, v in vehiculos.items():
+            pendiente = num_int in ("V-005", "V-006")
             Tenencia.objects.get_or_create(
                 vehiculo=v,
-                anio_fiscal=anio,
+                anio_fiscal=anio_actual,
                 defaults={
-                    "estatus_tenencia": "PAGADA" if num_int not in ("V-005", "V-006") else "PENDIENTE",
+                    "estatus_tenencia": "PENDIENTE" if pendiente else "PAGADA",
                     "monto_tenencia": Decimal("2500.00"),
-                    "fecha_pago": hoy - timedelta(days=30) if num_int not in ("V-005", "V-006") else None,
+                    "fecha_pago": None if pendiente else hoy - timedelta(days=30),
                 },
             )
+        # V-001 conserva además una tenencia pagada del año fiscal anterior,
+        # para mostrar historial con más de un registro por vehículo.
+        v1 = vehiculos["V-001"]
+        Tenencia.objects.get_or_create(
+            vehiculo=v1,
+            anio_fiscal=anio_actual - 1,
+            defaults={
+                "estatus_tenencia": "PAGADA",
+                "monto_tenencia": Decimal("2350.00"),
+                "fecha_pago": hoy - timedelta(days=395),
+            },
+        )
 
     # ─── Adeudos ─────────────────────────────────────────────────────────────
 
@@ -601,6 +614,18 @@ class Command(BaseCommand):
             defaults={
                 "monto_adeudo": Decimal("2500.00"),
                 "fecha_consulta": hoy - timedelta(days=180),
+            },
+        )
+        # Adeudo cancelado en V-004 (se detectó que correspondía a otra unidad)
+        v4 = vehiculos["V-004"]
+        AdeudoVehicular.objects.get_or_create(
+            vehiculo=v4,
+            tipo_adeudo="Multa mal aplicada",
+            estatus_adeudo="CANCELADO",
+            defaults={
+                "monto_adeudo": Decimal("800.00"),
+                "fecha_consulta": hoy - timedelta(days=45),
+                "observacion_adeudo": "Se canceló tras comprobar que la infracción correspondía a otra unidad.",
             },
         )
 

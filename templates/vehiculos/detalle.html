@@ -585,11 +585,16 @@
         </div>
 
         <!-- Tenencias -->
-        <h6 class="text-uppercase text-muted small fw-semibold mb-2">Tenencias</h6>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-uppercase text-muted small fw-semibold mb-0">Tenencias</h6>
+            <a href="{% url 'vehiculos:tenencia_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Registrar tenencia
+            </a>
+        </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
-                    <tr><th>Año fiscal</th><th>Estatus</th><th>Fecha pago</th><th>Monto</th></tr>
+                    <tr><th>Año fiscal</th><th>Estatus</th><th>Fecha pago</th><th>Monto</th><th></th></tr>
                 </thead>
                 <tbody>
                     {% for ten in tenencias %}
@@ -610,9 +615,21 @@
                         <td>
                             {% if ten.monto_tenencia %}${{ ten.monto_tenencia|floatformat:2 }}{% else %}—{% endif %}
                         </td>
+                        <td class="text-end">
+                            <a href="{% url 'vehiculos:tenencia_editar' vehiculo.pk ten.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="text-muted text-center py-2">Sin tenencias registradas.</td></tr>
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <i class="bi bi-cash-coin"></i>
+                                Sin tenencias registradas.
+                            </div>
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -689,12 +706,28 @@
 
     <!-- ═══ TAB 5: ADEUDOS ═══ -->
     <div class="tab-pane fade" id="tab-adeudos" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                {% if adeudos_pendientes_count %}
+                <span class="text-danger fw-semibold">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Total pendiente: ${{ adeudos_pendientes_monto|floatformat:2 }}
+                    ({{ adeudos_pendientes_count }} adeudo{{ adeudos_pendientes_count|pluralize }})
+                </span>
+                {% else %}
+                <span class="text-success"><i class="bi bi-check2-circle me-1"></i>Sin adeudos pendientes</span>
+                {% endif %}
+            </div>
+            <a href="{% url 'vehiculos:adeudo_nuevo' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Registrar adeudo
+            </a>
+        </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Tipo</th><th>Monto</th><th>Estatus</th>
-                        <th>Consulta</th><th>Observación</th>
+                        <th>Consulta</th><th>Observación</th><th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -719,10 +752,34 @@
                         </td>
                         <td>{{ ad.fecha_consulta|date:"d/m/Y"|default:"—" }}</td>
                         <td class="text-muted small">{{ ad.observacion_adeudo|default:"—" }}</td>
+                        <td class="text-end text-nowrap">
+                            {% if ad.estatus_adeudo == "PENDIENTE" %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-success"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalPagarAdeudo{{ ad.pk }}"
+                                    title="Marcar como pagado">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalCancelarAdeudo{{ ad.pk }}"
+                                    title="Cancelar adeudo">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                            <a href="{% url 'vehiculos:adeudo_editar' vehiculo.pk ad.pk %}"
+                               class="btn btn-sm btn-outline-secondary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% else %}
+                            <span class="text-muted small">Sin acciones</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5">
+                        <td colspan="6">
                             <div class="empty-state">
                                 <i class="bi bi-check2-circle text-success"></i>
                                 Sin adeudos registrados.
@@ -737,16 +794,39 @@
 
     <!-- ═══ TAB 6: BITÁCORA / OBSERVACIONES ═══ -->
     <div class="tab-pane fade" id="tab-observaciones" role="tabpanel">
+        <div class="d-flex justify-content-end mb-2">
+            <a href="{% url 'vehiculos:observacion_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-plus-lg me-1"></i>Agregar observación
+            </a>
+        </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead class="table-light">
-                    <tr><th>Tipo</th><th>Observación</th><th>Fecha</th><th>Autor</th></tr>
+                    <tr><th>Tipo</th><th>Observación</th><th>Fecha</th><th>Autor</th><th></th></tr>
                 </thead>
                 <tbody>
                     {% for obs in observaciones %}
                     <tr>
                         <td>
+                            {% if obs.tipo_observacion == "GENERAL" %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border">General</span>
+                            {% elif obs.tipo_observacion == "OPERATIVA" %}
+                            <span class="badge bg-primary-subtle text-primary-emphasis border">Operativa</span>
+                            {% elif obs.tipo_observacion == "MECANICA" %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border">Mecánica</span>
+                            {% elif obs.tipo_observacion == "SEGURO" %}
+                            <span class="badge bg-info-subtle text-info-emphasis border">Seguro</span>
+                            {% elif obs.tipo_observacion == "GPS" %}
+                            <span class="badge bg-dark-subtle text-dark-emphasis border">GPS</span>
+                            {% elif obs.tipo_observacion == "ADEUDO" %}
+                            <span class="badge bg-danger-subtle text-danger-emphasis border">Adeudo</span>
+                            {% elif obs.tipo_observacion == "SINIESTRO" %}
+                            <span class="badge bg-danger-subtle text-danger-emphasis border">Siniestro</span>
+                            {% elif obs.tipo_observacion == "DOCUMENTO" %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border">Documento</span>
+                            {% else %}
                             <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ obs.tipo_observacion }}</span>
+                            {% endif %}
                         </td>
                         <td>{{ obs.texto_observacion }}</td>
                         <td class="text-nowrap text-muted small">
@@ -755,10 +835,17 @@
                         <td class="text-muted small">
                             {{ obs.autor_registro|default:"—" }}
                         </td>
+                        <td class="text-end">
+                            {% if not obs.autor_registro_id or obs.autor_registro_id == request.user.id %}
+                            <a href="{% url 'vehiculos:observacion_editar' vehiculo.pk obs.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4">
+                        <td colspan="5">
                             <div class="empty-state">
                                 <i class="bi bi-journal-x"></i>
                                 Sin observaciones registradas.
@@ -775,6 +862,76 @@
     </div>
 
 </div>
+
+<!-- ─── Modales: Pagar / Cancelar adeudo ─── -->
+{% for ad in adeudos %}
+{% if ad.estatus_adeudo == "PENDIENTE" %}
+<div class="modal fade" id="modalPagarAdeudo{{ ad.pk }}" tabindex="-1"
+     aria-labelledby="modalPagarAdeudo{{ ad.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPagarAdeudo{{ ad.pk }}Label">
+                    <i class="bi bi-check-lg me-1"></i>Marcar adeudo como pagado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{% url 'vehiculos:adeudo_pagar' vehiculo.pk ad.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>
+                        ¿Confirmas marcar como <strong>pagado</strong> el adeudo
+                        «{{ ad.tipo_adeudo }}»
+                        {% if ad.monto_adeudo %}por <strong>${{ ad.monto_adeudo|floatformat:2 }}</strong>{% endif %}?
+                    </p>
+                    <p class="text-muted small mb-0">El registro se conservará en el historial.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Marcar como pagado
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCancelarAdeudo{{ ad.pk }}" tabindex="-1"
+     aria-labelledby="modalCancelarAdeudo{{ ad.pk }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCancelarAdeudo{{ ad.pk }}Label">
+                    <i class="bi bi-x-lg me-1"></i>Cancelar adeudo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{% url 'vehiculos:adeudo_cancelar' vehiculo.pk ad.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>
+                        ¿Confirmas <strong>cancelar</strong> el adeudo
+                        «{{ ad.tipo_adeudo }}»?
+                    </p>
+                    <p class="text-muted small mb-0">
+                        Se conservará el registro marcado como cancelado; no se elimina.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-x-lg me-1"></i>Cancelar adeudo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
 
 <!-- ─── Modal: Cambiar estatus ─── -->
 <div class="modal fade" id="modalCambiarEstatus" tabindex="-1"
