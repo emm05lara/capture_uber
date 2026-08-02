@@ -6,9 +6,12 @@ app_name = "vehiculos"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("dashboard/exportar/", views.dashboard_exportar, name="dashboard_exportar"),
     path("vehiculos/", views.lista_vehiculos, name="lista"),
+    path("vehiculos/exportar/", views.exportar_lista_vehiculos, name="exportar_lista"),
     path("vehiculos/nuevo/", views.nuevo_vehiculo, name="nuevo"),
     path("vehiculos/<int:pk>/", views.detalle_vehiculo, name="detalle"),
+    path("vehiculos/<int:pk>/exportar/", views.exportar_detalle, name="exportar_detalle"),
     path("vehiculos/<int:pk>/editar/", views.editar_vehiculo, name="editar"),
     path("vehiculos/<int:pk>/placas/nueva/", views.nueva_placa, name="nueva_placa"),
     path("vehiculos/<int:pk>/estatus/", views.cambiar_estatus, name="cambiar_estatus"),

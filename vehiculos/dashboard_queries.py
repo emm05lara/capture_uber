@@ -271,3 +271,47 @@ def obtener_vencimientos(hoy, horizonte=HORIZONTE_DEFECTO, tipo="", severidad=""
 
     filas.sort(key=lambda f: f["dias"])
     return filas
+
+
+def filas_informacion_faltante(hoy):
+    """Una fila por vehículo ACTIVO con al menos un faltante (conductor,
+    póliza/verificación/tarjeta vigente, GPS, TAG, placas o adeudos
+    pendientes), para la hoja "Información faltante" de la exportación del
+    dashboard. Una sola consulta anotada; el resto es Python sobre filas ya
+    resueltas, sin más consultas por vehículo."""
+    instalacion_gps_activa = InstalacionGps.objects.filter(vehiculo_id=OuterRef("pk"), fecha_retiro__isnull=True)
+    asignacion_tag_activa = AsignacionTag.objects.filter(vehiculo_id=OuterRef("pk"), fecha_fin__isnull=True)
+
+    activos = VwFichaVehiculo.objects.filter(estatus_unidad=Vehiculo.EstatusUnidad.ACTIVA).annotate(
+        tiene_gps=Exists(instalacion_gps_activa),
+        tiene_tag=Exists(asignacion_tag_activa),
+    )
+
+    filas = []
+    for f in activos:
+        faltantes = []
+        if f.conductor is None:
+            faltantes.append("Sin conductor")
+        if f.vigencia_poliza is None or f.vigencia_poliza < hoy:
+            faltantes.append("Sin póliza vigente")
+        if f.fecha_limite_verificacion is None or f.fecha_limite_verificacion < hoy:
+            faltantes.append("Sin verificación vigente")
+        if f.vigencia_tarjeta_circulacion is None or f.vigencia_tarjeta_circulacion < hoy:
+            faltantes.append("Sin tarjeta vigente")
+        if not f.tiene_gps:
+            faltantes.append("Sin GPS")
+        if not f.tiene_tag:
+            faltantes.append("Sin TAG")
+        if f.placas_actuales is None:
+            faltantes.append("Sin placas")
+        if f.cantidad_adeudos_pendientes:
+            faltantes.append("Con adeudos pendientes")
+
+        if faltantes:
+            filas.append((
+                f.numero_interno or f.numero_serie,
+                f.placas_actuales or "",
+                ", ".join(faltantes),
+                f.estatus_unidad,
+            ))
+    return filas

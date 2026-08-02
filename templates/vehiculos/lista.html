@@ -11,9 +11,14 @@
             {{ page_obj.paginator.count }} resultado{% if page_obj.paginator.count != 1 %}s{% endif %}
         </span>
     </div>
-    <a href="{% url 'vehiculos:nuevo' %}" class="btn btn-dark">
-        <i class="bi bi-plus-lg me-1"></i>Nuevo vehículo
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'vehiculos:exportar_lista' %}?{{ query_string }}" class="btn btn-outline-secondary">
+            <i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel
+        </a>
+        <a href="{% url 'vehiculos:nuevo' %}" class="btn btn-dark">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo vehículo
+        </a>
+    </div>
 </div>
 
 <!-- ─── Filtros ─── -->

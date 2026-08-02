@@ -27,6 +27,13 @@ from .dashboard_queries import (
     resumen_vehiculos,
     severidad_valida,
     tipo_valido,
+    filas_informacion_faltante,
+)
+from .exporters import (
+    construir_libro_dashboard,
+    construir_libro_ficha_vehiculo,
+    construir_libro_vehiculos,
+    respuesta_excel,
 )
 from .forms import (
     AdeudoVehicularForm,
@@ -52,15 +59,27 @@ from .models import (
 )
 
 
+def _filtros_dashboard(request):
+    """Lee y normaliza los parámetros GET del dashboard (horizonte, tipo,
+    severidad, estatus, búsqueda). Los usan tanto la vista como la
+    exportación a Excel, para que ambas apliquen exactamente el mismo
+    criterio de filtrado."""
+    return {
+        "horizonte": horizonte_valido(request.GET.get("horizonte")),
+        "tipo": tipo_valido(request.GET.get("tipo")),
+        "severidad": severidad_valida(request.GET.get("severidad")),
+        "estatus": estatus_vehiculo_valido(request.GET.get("estatus")),
+        "q": request.GET.get("q", "").strip(),
+    }
+
+
 @login_required
 def dashboard(request):
     hoy = localdate()
-
-    horizonte = horizonte_valido(request.GET.get("horizonte"))
-    tipo = tipo_valido(request.GET.get("tipo"))
-    severidad = severidad_valida(request.GET.get("severidad"))
-    estatus = estatus_vehiculo_valido(request.GET.get("estatus"))
-    q = request.GET.get("q", "").strip()
+    filtros = _filtros_dashboard(request)
+    horizonte, tipo, severidad, estatus, q = (
+        filtros["horizonte"], filtros["tipo"], filtros["severidad"], filtros["estatus"], filtros["q"],
+    )
 
     resumen = resumen_vehiculos(hoy)
     conductores = resumen_conductores(hoy, horizonte)
@@ -112,14 +131,42 @@ def dashboard(request):
     })
 
 
+@login_required
+def dashboard_exportar(request):
+    hoy = localdate()
+    filtros = _filtros_dashboard(request)
+
+    vencimientos = obtener_vencimientos(
+        hoy,
+        horizonte=filtros["horizonte"],
+        tipo=filtros["tipo"],
+        severidad=filtros["severidad"],
+        estatus=filtros["estatus"],
+        q=filtros["q"],
+    )
+    faltantes = filas_informacion_faltante(hoy)
+    adeudos = (
+        AdeudoVehicular.objects.filter(estatus_adeudo=AdeudoVehicular.EstatusAdeudo.PENDIENTE)
+        .select_related("vehiculo")
+        .order_by("-monto_adeudo", "-fecha_consulta")
+    )
+
+    wb = construir_libro_dashboard(vencimientos, faltantes, adeudos)
+    nombre = f"alertas_dashboard_{hoy.isoformat()}.xlsx"
+    return respuesta_excel(wb, nombre)
+
+
 ALERTAS_VEHICULO_VALIDAS = {
     "sin_conductor", "sin_poliza", "sin_verificacion", "sin_tarjeta",
     "sin_placas", "sin_gps", "sin_tag", "adeudos",
 }
 
 
-@login_required
-def lista_vehiculos(request):
+def _fichas_filtradas(request):
+    """Aplica a `VwFichaVehiculo` los mismos filtros GET que usa el listado
+    (q/semaforo/estatus/alerta). Se usa tanto para la vista paginada como
+    para la exportación a Excel, así el criterio de filtrado vive en un solo
+    lugar."""
     fichas = VwFichaVehiculo.objects.all()
     hoy = localdate()
 
@@ -165,9 +212,15 @@ def lista_vehiculos(request):
         asignacion_activa = AsignacionTag.objects.filter(vehiculo_id=OuterRef("pk"), fecha_fin__isnull=True)
         fichas = fichas.annotate(tiene_tag=Exists(asignacion_activa)).filter(tiene_tag=False)
 
-    query_params = {
-        k: v for k, v in {"q": q, "semaforo": semaforo, "estatus": estatus, "alerta": alerta}.items() if v
-    }
+    filtros = {"q": q, "semaforo": semaforo, "estatus": estatus, "alerta": alerta}
+    return fichas, filtros
+
+
+@login_required
+def lista_vehiculos(request):
+    fichas, filtros = _fichas_filtradas(request)
+
+    query_params = {k: v for k, v in filtros.items() if v}
     query_string = urlencode(query_params)
 
     paginator = Paginator(fichas, 25)
@@ -175,14 +228,22 @@ def lista_vehiculos(request):
 
     return render(request, "vehiculos/lista.html", {
         "page_obj": page_obj,
-        "q": q,
-        "semaforo": semaforo,
-        "estatus": estatus,
-        "alerta": alerta,
+        "q": filtros["q"],
+        "semaforo": filtros["semaforo"],
+        "estatus": filtros["estatus"],
+        "alerta": filtros["alerta"],
         "query_string": query_string,
         "estatus_choices": Vehiculo.EstatusUnidad.choices,
         "semaforo_choices": ["VERDE", "AMARILLO", "ROJO"],
     })
+
+
+@login_required
+def exportar_lista_vehiculos(request):
+    fichas, _ = _fichas_filtradas(request)
+    wb = construir_libro_vehiculos(fichas)
+    nombre = f"vehiculos_{localdate().isoformat()}.xlsx"
+    return respuesta_excel(wb, nombre)
 
 
 @login_required
@@ -327,13 +388,12 @@ def cambiar_estatus(request, pk):
     return redirect("vehiculos:detalle", pk=pk)
 
 
-@login_required
-def detalle_vehiculo(request, pk):
-    vehiculo = get_object_or_404(
-        Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
-        pk=pk,
-    )
-    ficha = VwFichaVehiculo.objects.filter(pk=pk).first()
+def _datos_detalle_vehiculo(vehiculo):
+    """Arma todas las consultas relacionadas de la ficha de un vehículo.
+    La usan tanto `detalle_vehiculo` (que además recorta observaciones a las
+    últimas 20 para la pantalla) como `exportar_detalle`, para no duplicar
+    estos querysets ya optimizados con select_related/prefetch_related."""
+    ficha = VwFichaVehiculo.objects.filter(pk=vehiculo.pk).first()
     asignaciones_vehiculo = (
         vehiculo.asignaciones_vehiculo
         .select_related("conductor", "plataforma", "socio")
@@ -349,7 +409,7 @@ def detalle_vehiculo(request, pk):
     gps_actual = next((i for i in instalaciones_gps if i.es_actual), None)
     tag_actual = next((a for a in asignaciones_tag if a.es_actual), None)
 
-    return render(request, "vehiculos/detalle.html", {
+    return {
         "vehiculo": vehiculo,
         "ficha": ficha,
         "asignacion_actual": asignacion_actual,
@@ -366,10 +426,39 @@ def detalle_vehiculo(request, pk):
         "asignaciones_tag": asignaciones_tag,
         "gps_actual": gps_actual,
         "tag_actual": tag_actual,
-        "observaciones": vehiculo.observaciones.select_related("autor_registro")[:20],
+        "observaciones": vehiculo.observaciones.select_related("autor_registro"),
+    }
+
+
+@login_required
+def detalle_vehiculo(request, pk):
+    vehiculo = get_object_or_404(
+        Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
+        pk=pk,
+    )
+    datos = _datos_detalle_vehiculo(vehiculo)
+    datos["observaciones"] = datos["observaciones"][:20]
+
+    return render(request, "vehiculos/detalle.html", {
+        **datos,
         "hoy": localdate(),
         "limite_amarillo": localdate() + timedelta(days=30),
     })
+
+
+@login_required
+def exportar_detalle(request, pk):
+    vehiculo = get_object_or_404(
+        Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
+        pk=pk,
+    )
+    datos = _datos_detalle_vehiculo(vehiculo)
+    wb = construir_libro_ficha_vehiculo(vehiculo, datos)
+
+    placas_actuales = datos["ficha"].placas_actuales if datos["ficha"] else None
+    base = vehiculo.numero_interno or placas_actuales or vehiculo.numero_serie
+    nombre = f"ficha_{base}_{localdate().isoformat()}.xlsx"
+    return respuesta_excel(wb, nombre)
 
 
 @login_required

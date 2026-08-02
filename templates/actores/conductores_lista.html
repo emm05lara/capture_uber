@@ -11,9 +11,14 @@
             {{ page_obj.paginator.count }} conductor{% if page_obj.paginator.count != 1 %}es{% endif %}
         </span>
     </div>
-    <a href="{% url 'actores:conductor_nuevo' %}" class="btn btn-dark">
-        <i class="bi bi-plus-lg me-1"></i>Nuevo conductor
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'actores:conductores_exportar' %}?{{ query_string }}" class="btn btn-outline-secondary">
+            <i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel
+        </a>
+        <a href="{% url 'actores:conductor_nuevo' %}" class="btn btn-dark">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo conductor
+        </a>
+    </div>
 </div>
 
 <!-- ─── Filtros ─── -->

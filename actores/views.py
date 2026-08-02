@@ -1,14 +1,17 @@
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import localdate
 
 from operacion.models import AsignacionVehiculo
+from vehiculos.exporters import construir_libro_conductores, respuesta_excel
+from vehiculos.models import Emplacamiento
 from .forms import ConductorForm, ReferenciaConductorFormSet
 from .models import Conductor, ReferenciaConductor
 
@@ -24,8 +27,16 @@ def _horizonte_valido(valor):
     return horizonte if horizonte in HORIZONTES_VALIDOS else 30
 
 
-@login_required
-def conductores_lista(request):
+def _conductores_filtrados(request):
+    """Aplica a `Conductor` los mismos filtros GET que usa el listado
+    (q/estatus/alerta/horizonte). La usan tanto la vista paginada como la
+    exportación a Excel, así el criterio de filtrado vive en un solo lugar.
+
+    El queryset resultante ya trae la asignación de vehículo activa (con su
+    emplacamiento vigente, para poder leer las placas actuales sin una
+    consulta extra por conductor) y el conteo de referencias personales,
+    para que la exportación no dispare una consulta por fila.
+    """
     hoy = localdate()
 
     q = request.GET.get("q", "").strip()
@@ -35,14 +46,21 @@ def conductores_lista(request):
         alerta = ""
     horizonte = _horizonte_valido(request.GET.get("horizonte"))
 
-    conductores = Conductor.objects.prefetch_related(
-        Prefetch(
-            "asignaciones_vehiculo",
-            queryset=AsignacionVehiculo.objects.filter(
-                fecha_fin__isnull=True
-            ).select_related("vehiculo"),
-            to_attr="asignacion_activa",
+    asignacion_activa_qs = (
+        AsignacionVehiculo.objects.filter(fecha_fin__isnull=True)
+        .select_related("vehiculo")
+        .prefetch_related(
+            Prefetch(
+                "vehiculo__emplacamientos",
+                queryset=Emplacamiento.objects.filter(fecha_fin__isnull=True),
+                to_attr="emplacamiento_actual_list",
+            )
         )
+    )
+    conductores = Conductor.objects.annotate(
+        num_referencias=Count("referencias", distinct=True)
+    ).prefetch_related(
+        Prefetch("asignaciones_vehiculo", queryset=asignacion_activa_qs, to_attr="asignacion_activa")
     )
 
     if q:
@@ -75,16 +93,37 @@ def conductores_lista(request):
         )
 
     conductores = conductores.order_by("nombre_completo")
+    filtros = {"q": q, "estatus": estatus, "alerta": alerta, "horizonte": horizonte}
+    return conductores, filtros
+
+
+@login_required
+def conductores_lista(request):
+    conductores, filtros = _conductores_filtrados(request)
     paginator = Paginator(conductores, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    query_params = {
+        k: v for k, v in {"q": filtros["q"], "estatus": filtros["estatus"], "alerta": filtros["alerta"]}.items() if v
+    }
+    query_string = urlencode(query_params)
+
     return render(request, "actores/conductores_lista.html", {
         "page_obj": page_obj,
-        "q": q,
-        "estatus": estatus,
-        "alerta": alerta,
+        "q": filtros["q"],
+        "estatus": filtros["estatus"],
+        "alerta": filtros["alerta"],
+        "query_string": query_string,
         "estatus_choices": Conductor.Estatus.choices,
     })
+
+
+@login_required
+def conductores_exportar(request):
+    conductores, _ = _conductores_filtrados(request)
+    wb = construir_libro_conductores(conductores)
+    nombre = f"conductores_{localdate().isoformat()}.xlsx"
+    return respuesta_excel(wb, nombre)
 
 
 @login_required
