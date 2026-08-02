@@ -1,19 +1,39 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.timezone import localdate
 
 from operacion.models import AsignacionVehiculo
 from .forms import ConductorForm, ReferenciaConductorFormSet
-from .models import Conductor
+from .models import Conductor, ReferenciaConductor
+
+ALERTAS_CONDUCTOR_VALIDAS = {"sin_vehiculo", "sin_referencias", "licencia_vencida", "licencia_por_vencer"}
+HORIZONTES_VALIDOS = (30, 60, 90)
+
+
+def _horizonte_valido(valor):
+    try:
+        horizonte = int(valor)
+    except (TypeError, ValueError):
+        return 30
+    return horizonte if horizonte in HORIZONTES_VALIDOS else 30
 
 
 @login_required
 def conductores_lista(request):
+    hoy = localdate()
+
     q = request.GET.get("q", "").strip()
     estatus = request.GET.get("estatus", "").strip()
+    alerta = request.GET.get("alerta", "").strip()
+    if alerta not in ALERTAS_CONDUCTOR_VALIDAS:
+        alerta = ""
+    horizonte = _horizonte_valido(request.GET.get("horizonte"))
 
     conductores = Conductor.objects.prefetch_related(
         Prefetch(
@@ -34,6 +54,26 @@ def conductores_lista(request):
     if estatus:
         conductores = conductores.filter(estatus_conductor=estatus)
 
+    if alerta == "sin_vehiculo":
+        asignacion_activa = AsignacionVehiculo.objects.filter(conductor_id=OuterRef("pk"), fecha_fin__isnull=True)
+        conductores = conductores.annotate(tiene_vehiculo=Exists(asignacion_activa)).filter(tiene_vehiculo=False)
+    elif alerta == "sin_referencias":
+        referencia_existente = ReferenciaConductor.objects.filter(conductor_id=OuterRef("pk"))
+        conductores = conductores.annotate(tiene_referencias=Exists(referencia_existente)).filter(
+            tiene_referencias=False
+        )
+    elif alerta == "licencia_vencida":
+        conductores = conductores.filter(
+            fecha_vencimiento_licencia__isnull=False, fecha_vencimiento_licencia__lt=hoy
+        )
+    elif alerta == "licencia_por_vencer":
+        limite = hoy + timedelta(days=horizonte)
+        conductores = conductores.filter(
+            fecha_vencimiento_licencia__isnull=False,
+            fecha_vencimiento_licencia__gte=hoy,
+            fecha_vencimiento_licencia__lte=limite,
+        )
+
     conductores = conductores.order_by("nombre_completo")
     paginator = Paginator(conductores, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -42,6 +82,7 @@ def conductores_lista(request):
         "page_obj": page_obj,
         "q": q,
         "estatus": estatus,
+        "alerta": alerta,
         "estatus_choices": Conductor.Estatus.choices,
     })
 

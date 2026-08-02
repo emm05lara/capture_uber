@@ -20,6 +20,7 @@
 <div class="card mb-3">
     <div class="card-body py-3">
         <form method="get" class="row g-2 align-items-end">
+            {% if alerta %}<input type="hidden" name="alerta" value="{{ alerta }}">{% endif %}
             <div class="col-12 col-md-5">
                 <label class="form-label small mb-1">Buscar</label>
                 <div class="input-group">
@@ -50,7 +51,7 @@
                 <button type="submit" class="btn btn-primary flex-fill">
                     <i class="bi bi-funnel me-1"></i>Filtrar
                 </button>
-                {% if q or semaforo or estatus %}
+                {% if q or semaforo or estatus or alerta %}
                 <a href="{% url 'vehiculos:lista' %}" class="btn btn-outline-secondary" title="Limpiar filtros">
                     <i class="bi bi-x-lg"></i>
                 </a>
@@ -61,20 +62,27 @@
 </div>
 
 <!-- ─── Filtros activos ─── -->
-{% if semaforo or estatus %}
+{% if semaforo or estatus or alerta %}
 <div class="mb-2">
     {% if semaforo %}
     <span class="badge bg-secondary me-1">
         Semáforo: {{ semaforo }}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if estatus %}estatus={{ estatus }}{% endif %}"
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if estatus %}estatus={{ estatus }}&{% endif %}{% if alerta %}alerta={{ alerta }}{% endif %}"
            class="text-white text-decoration-none ms-1">×</a>
     </span>
     {% endif %}
     {% if estatus %}
     <span class="badge bg-secondary me-1">
         Estatus: {{ estatus }}
-        <a href="?{% if q %}q={{ q }}&{% endif %}{% if semaforo %}semaforo={{ semaforo }}{% endif %}"
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if semaforo %}semaforo={{ semaforo }}&{% endif %}{% if alerta %}alerta={{ alerta }}{% endif %}"
            class="text-white text-decoration-none ms-1">×</a>
+    </span>
+    {% endif %}
+    {% if alerta %}
+    <span class="badge bg-warning text-dark me-1">
+        <i class="bi bi-exclamation-triangle me-1"></i>Alerta: {{ alerta }}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if semaforo %}semaforo={{ semaforo }}&{% endif %}{% if estatus %}estatus={{ estatus }}{% endif %}"
+           class="text-dark text-decoration-none ms-1">×</a>
     </span>
     {% endif %}
 </div>

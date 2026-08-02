@@ -5,16 +5,29 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Exists, IntegerField, OuterRef, Q, Sum, Value, When
+from django.db.models import Exists, OuterRef, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 from django.utils.timezone import localdate
 from django.views.decorators.http import require_POST
 
-from dispositivos.forms import AsignacionTagForm, InstalacionGpsForm, gps_disponibles_qs, tag_disponibles_qs
+from dispositivos.forms import AsignacionTagForm, InstalacionGpsForm
 from dispositivos.models import AsignacionTag, DispositivoGps, InstalacionGps, TagTelepeaje
 from operacion.forms import AsignacionVehiculoForm
 from operacion.models import AsignacionVehiculo
+from .dashboard_queries import (
+    HORIZONTES_VALIDOS,
+    adeudos_destacados,
+    alertas_semaforo,
+    estatus_vehiculo_valido,
+    horizonte_valido,
+    obtener_vencimientos,
+    resumen_conductores,
+    resumen_dispositivos,
+    resumen_vehiculos,
+    severidad_valida,
+    tipo_valido,
+)
 from .forms import (
     AdeudoVehicularForm,
     EditarVehiculoForm,
@@ -41,63 +54,81 @@ from .models import (
 
 @login_required
 def dashboard(request):
-    fichas = VwFichaVehiculo.objects.all()
-    activos = fichas.filter(estatus_unidad="ACTIVA")
+    hoy = localdate()
 
-    con_adeudos = fichas.filter(cantidad_adeudos_pendientes__gt=0)
-    monto_adeudos = con_adeudos.aggregate(total=Sum("monto_adeudos_pendientes"))["total"]
+    horizonte = horizonte_valido(request.GET.get("horizonte"))
+    tipo = tipo_valido(request.GET.get("tipo"))
+    severidad = severidad_valida(request.GET.get("severidad"))
+    estatus = estatus_vehiculo_valido(request.GET.get("estatus"))
+    q = request.GET.get("q", "").strip()
 
-    instalacion_gps_activa = InstalacionGps.objects.filter(vehiculo=OuterRef("pk"), fecha_retiro__isnull=True)
-    asignacion_tag_activa = AsignacionTag.objects.filter(vehiculo=OuterRef("pk"), fecha_fin__isnull=True)
-    vehiculos_activos = Vehiculo.objects.filter(estatus_unidad=Vehiculo.EstatusUnidad.ACTIVA)
-    vehiculos_sin_gps = (
-        vehiculos_activos.annotate(tiene_gps=Exists(instalacion_gps_activa)).filter(tiene_gps=False).count()
+    resumen = resumen_vehiculos(hoy)
+    conductores = resumen_conductores(hoy, horizonte)
+    dispositivos = resumen_dispositivos()
+
+    vencimientos = obtener_vencimientos(
+        hoy, horizonte=horizonte, tipo=tipo, severidad=severidad, estatus=estatus, q=q,
     )
-    vehiculos_sin_tag = (
-        vehiculos_activos.annotate(tiene_tag=Exists(asignacion_tag_activa)).filter(tiene_tag=False).count()
-    )
+    vencidos = [f for f in vencimientos if f["bucket"] == "VENCIDO"]
 
-    stats = {
-        "total": fichas.count(),
-        "activos": activos.count(),
-        "verde": activos.filter(semaforo_documental="VERDE").count(),
-        "amarillo": activos.filter(semaforo_documental="AMARILLO").count(),
-        "rojo": activos.filter(semaforo_documental="ROJO").count(),
-        "vehiculos_con_adeudos": con_adeudos.count(),
-        "monto_adeudos_pendientes": monto_adeudos or 0,
-        "vehiculos_sin_gps": vehiculos_sin_gps,
-        "vehiculos_sin_tag": vehiculos_sin_tag,
-        "gps_disponibles": gps_disponibles_qs().count(),
-        "tag_disponibles": tag_disponibles_qs().count(),
+    query_params = {
+        k: v for k, v in {
+            "horizonte": horizonte if horizonte != 30 else "",
+            "tipo": tipo,
+            "severidad": severidad,
+            "estatus": estatus,
+            "q": q,
+        }.items() if v
     }
+    query_string = urlencode(query_params)
 
-    alertas = (
-        activos.exclude(semaforo_documental="VERDE")
-        .annotate(
-            prioridad=Case(
-                When(semaforo_documental="ROJO", then=Value(1)),
-                When(semaforo_documental="AMARILLO", then=Value(2)),
-                default=Value(3),
-                output_field=IntegerField(),
-            )
-        )
-        .order_by("prioridad", "numero_interno")[:20]
-    )
+    paginator = Paginator(vencimientos, 15)
+    page_obj = paginator.get_page(request.GET.get("page"))
 
     return render(request, "vehiculos/dashboard.html", {
-        "stats": stats,
-        "alertas": alertas,
-        "hoy": localdate(),
+        "hoy": hoy,
+        "resumen": resumen,
+        "conductores": conductores,
+        "dispositivos": dispositivos,
+        "page_obj": page_obj,
+        "vencidos_criticos": vencidos[:5],
+        "vencidos_criticos_total": len(vencidos),
+        "adeudos_top": adeudos_destacados(5),
+        "alertas_semaforo": alertas_semaforo(10),
+        "horizonte": horizonte,
+        "tipo": tipo,
+        "severidad": severidad,
+        "estatus": estatus,
+        "q": q,
+        "query_string": query_string,
+        "horizontes": HORIZONTES_VALIDOS,
+        "estatus_choices": Vehiculo.EstatusUnidad.choices,
+        "tipo_choices": [
+            ("POLIZA", "Póliza de seguro"),
+            ("VERIFICACION", "Verificación vehicular"),
+            ("TARJETA", "Tarjeta de circulación"),
+            ("LICENCIA", "Licencia de conductor"),
+        ],
     })
+
+
+ALERTAS_VEHICULO_VALIDAS = {
+    "sin_conductor", "sin_poliza", "sin_verificacion", "sin_tarjeta",
+    "sin_placas", "sin_gps", "sin_tag", "adeudos",
+}
 
 
 @login_required
 def lista_vehiculos(request):
     fichas = VwFichaVehiculo.objects.all()
+    hoy = localdate()
 
     q = request.GET.get("q", "").strip()
     semaforo = request.GET.get("semaforo", "").strip()
     estatus = request.GET.get("estatus", "").strip()
+    alerta = request.GET.get("alerta", "").strip()
+    if alerta not in ALERTAS_VEHICULO_VALIDAS:
+        alerta = ""
 
     if q:
         fichas = fichas.filter(
@@ -113,7 +144,30 @@ def lista_vehiculos(request):
     if estatus:
         fichas = fichas.filter(estatus_unidad=estatus)
 
-    query_params = {k: v for k, v in {"q": q, "semaforo": semaforo, "estatus": estatus}.items() if v}
+    if alerta == "sin_conductor":
+        fichas = fichas.filter(conductor__isnull=True)
+    elif alerta == "sin_poliza":
+        fichas = fichas.filter(Q(vigencia_poliza__isnull=True) | Q(vigencia_poliza__lt=hoy))
+    elif alerta == "sin_verificacion":
+        fichas = fichas.filter(Q(fecha_limite_verificacion__isnull=True) | Q(fecha_limite_verificacion__lt=hoy))
+    elif alerta == "sin_tarjeta":
+        fichas = fichas.filter(
+            Q(vigencia_tarjeta_circulacion__isnull=True) | Q(vigencia_tarjeta_circulacion__lt=hoy)
+        )
+    elif alerta == "sin_placas":
+        fichas = fichas.filter(placas_actuales__isnull=True)
+    elif alerta == "adeudos":
+        fichas = fichas.filter(cantidad_adeudos_pendientes__gt=0)
+    elif alerta == "sin_gps":
+        instalacion_activa = InstalacionGps.objects.filter(vehiculo_id=OuterRef("pk"), fecha_retiro__isnull=True)
+        fichas = fichas.annotate(tiene_gps=Exists(instalacion_activa)).filter(tiene_gps=False)
+    elif alerta == "sin_tag":
+        asignacion_activa = AsignacionTag.objects.filter(vehiculo_id=OuterRef("pk"), fecha_fin__isnull=True)
+        fichas = fichas.annotate(tiene_tag=Exists(asignacion_activa)).filter(tiene_tag=False)
+
+    query_params = {
+        k: v for k, v in {"q": q, "semaforo": semaforo, "estatus": estatus, "alerta": alerta}.items() if v
+    }
     query_string = urlencode(query_params)
 
     paginator = Paginator(fichas, 25)
@@ -124,6 +178,7 @@ def lista_vehiculos(request):
         "q": q,
         "semaforo": semaforo,
         "estatus": estatus,
+        "alerta": alerta,
         "query_string": query_string,
         "estatus_choices": Vehiculo.EstatusUnidad.choices,
         "semaforo_choices": ["VERDE", "AMARILLO", "ROJO"],

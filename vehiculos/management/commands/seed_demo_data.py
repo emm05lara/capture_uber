@@ -74,7 +74,7 @@ class Command(BaseCommand):
             aseguradoras = self._aseguradoras()
 
             self._paso("Conductores")
-            conductores = self._conductores()
+            conductores = self._conductores(hoy)
 
             self._paso("Referencias personales")
             self._referencias_conductores(conductores)
@@ -92,7 +92,7 @@ class Command(BaseCommand):
             titular = self._titular_poliza()
             self._polizas(vehiculos, aseguradoras, titular, verde, amarillo, rojo)
             self._verificaciones(vehiculos, emplacamientos, verde, amarillo, rojo)
-            self._tarjetas(vehiculos, emplacamientos, verde, rojo)
+            self._tarjetas(vehiculos, emplacamientos, verde, amarillo, rojo)
             self._tenencias(vehiculos, hoy)
 
             self._paso("Adeudos")
@@ -262,27 +262,32 @@ class Command(BaseCommand):
 
     # ─── Conductores ─────────────────────────────────────────────────────────
 
-    def _conductores(self):
+    def _conductores(self, hoy):
+        # (nombre, estatus, tipo_licencia, teléfono, vencimiento_licencia)
+        # El vencimiento se calcula sobre "hoy" para demostrar los tres casos
+        # del dashboard (vencida / próxima a vencer / sin problema). Como
+        # depende de la fecha de ejecución, se actualiza en cada corrida vía
+        # update_or_create — no participa de la clave de búsqueda.
         datos = [
-            ("Carlos Mendoza Ruiz",       "ACTIVO",   "B", "55-1111-0001"),
-            ("María López Hernández",     "ACTIVO",   "B", "55-1111-0002"),
-            ("Roberto García Torres",     "ACTIVO",   "B", "55-1111-0003"),
-            ("Ana Martínez Silva",        "ACTIVO",   "B", "55-1111-0004"),
-            ("Luis Ramírez Flores",       "ACTIVO",   "B", "55-1111-0005"),
-            ("Patricia Sánchez Cruz",     "ACTIVO",   "B", "55-1111-0006"),
-            ("Elena Castro Juárez",       "ACTIVO",   "B", "55-1111-0007"),
-            ("Diego Morales Vega",        "INACTIVO", "B", "55-1111-0008"),
-            ("Fernanda Rojas Bautista",   "ACTIVO",   "B", "55-1111-0009"),
+            ("Carlos Mendoza Ruiz",       "ACTIVO",   "B", "55-1111-0001", None),
+            ("María López Hernández",     "ACTIVO",   "B", "55-1111-0002", None),
+            ("Roberto García Torres",     "ACTIVO",   "B", "55-1111-0003", None),
+            ("Ana Martínez Silva",        "ACTIVO",   "B", "55-1111-0004", None),
+            ("Luis Ramírez Flores",       "ACTIVO",   "B", "55-1111-0005", hoy + timedelta(days=20)),
+            ("Patricia Sánchez Cruz",     "ACTIVO",   "B", "55-1111-0006", hoy - timedelta(days=10)),
+            ("Elena Castro Juárez",       "ACTIVO",   "B", "55-1111-0007", None),
+            ("Diego Morales Vega",        "INACTIVO", "B", "55-1111-0008", None),
+            ("Fernanda Rojas Bautista",   "ACTIVO",   "B", "55-1111-0009", None),
         ]
         conductores = {}
-        for nombre, estatus, tipo_lic, tel in datos:
-            c = self._goc(
-                Conductor,
+        for nombre, estatus, tipo_lic, tel, vencimiento_licencia in datos:
+            c, _ = Conductor.objects.update_or_create(
                 nombre_completo=nombre,
                 defaults={
                     "estatus_conductor": estatus,
                     "tipo_licencia": tipo_lic,
                     "telefono": tel,
+                    "fecha_vencimiento_licencia": vencimiento_licencia,
                 },
             )
             conductores[nombre.split()[0]] = c  # índice por primer nombre
@@ -482,7 +487,12 @@ class Command(BaseCommand):
         ]
         for num_int, aseg, num_pol, inicio, fin in datos:
             v = vehiculos[num_int]
-            PolizaSeguro.objects.get_or_create(
+            # La clave estable es (aseguradora, número de póliza); las fechas
+            # de vigencia dependen de "hoy" y deben refrescarse en cada
+            # corrida (update_or_create), o quedarían congeladas en la
+            # clasificación vigente/próxima a vencer/vencida del día en que
+            # se creó el registro por primera vez.
+            PolizaSeguro.objects.update_or_create(
                 aseguradora=aseg,
                 numero_poliza=num_pol,
                 defaults={
@@ -511,7 +521,11 @@ class Command(BaseCommand):
         for num_int, semestre, ultima, limite in datos:
             v = vehiculos[num_int]
             emp = emplacamientos.get(num_int)
-            VerificacionVehicular.objects.get_or_create(
+            # Clave estable (vehículo, semestre); las fechas relativas a
+            # "hoy" viven en defaults para no quedar congeladas si el
+            # comando se ejecuta en un día distinto (mismo criterio que
+            # pólizas y tarjetas).
+            VerificacionVehicular.objects.update_or_create(
                 vehiculo=v,
                 semestre=semestre,
                 defaults={
@@ -523,7 +537,7 @@ class Command(BaseCommand):
 
     # ─── Tarjetas de circulación ─────────────────────────────────────────────
 
-    def _tarjetas(self, vehiculos, emplacamientos, verde, rojo):
+    def _tarjetas(self, vehiculos, emplacamientos, verde, amarillo, rojo):
         # La clave estable es el vehículo (un solo registro demo de tarjeta
         # por unidad); las fechas, al depender de "hoy", solo pueden vivir en
         # defaults/update_or_create para no generar un registro nuevo cada
@@ -534,7 +548,7 @@ class Command(BaseCommand):
             ("V-002", hoy - timedelta(days=365), verde),
             ("V-003", hoy - timedelta(days=180), verde),
             ("V-004", hoy - timedelta(days=365), verde),
-            ("V-006", hoy - timedelta(days=365), verde),
+            ("V-006", hoy - timedelta(days=365), amarillo),  # tarjeta próxima a vencer
             ("V-007", hoy - timedelta(days=365), rojo),   # tarjeta vencida → ROJO
             ("V-008", hoy - timedelta(days=365), verde),
         ]
