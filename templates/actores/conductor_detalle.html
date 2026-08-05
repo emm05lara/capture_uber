@@ -66,10 +66,12 @@
 
             <!-- Botones de acción -->
             <div class="col-auto d-flex flex-column flex-sm-row gap-2 mt-2 mt-sm-0">
+                {% if puede_editar %}
                 <a href="{% url 'actores:conductor_editar' conductor.pk %}"
                    class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-pencil me-1"></i>Editar
                 </a>
+                {% endif %}
                 <a href="{% url 'actores:conductores_lista' %}"
                    class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Volver
@@ -353,10 +355,12 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>
                 Este conductor no tiene referencias personales registradas.
             </span>
+            {% if puede_editar %}
             <a href="{% url 'actores:conductor_editar' conductor.pk %}"
                class="btn btn-sm btn-warning text-nowrap">
                 <i class="bi bi-plus-lg me-1"></i>Agregar referencia
             </a>
+            {% endif %}
         </div>
         {% endif %}
     </div>

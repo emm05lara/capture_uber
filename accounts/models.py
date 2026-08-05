@@ -4,9 +4,16 @@ from django.db import models
 
 class CustomUser(AbstractUser):
     class Rol(models.TextChoices):
+        # Los tres valores existían desde la primera migración. Se conservan
+        # tal cual en la base de datos; solo se ajustaron las etiquetas para
+        # que coincidan con el vocabulario operativo del sistema:
+        #   ADMINISTRADOR -> rol ADMIN     (acceso completo)
+        #   OPERADOR      -> rol OPERADOR  (captura y acciones operativas)
+        #   AUDITOR       -> rol CONSULTA  (solo lectura)
+        # La matriz de permisos vive en `accounts.permissions`.
         ADMINISTRADOR = "ADMINISTRADOR", "Administrador"
         OPERADOR = "OPERADOR", "Operador"
-        AUDITOR = "AUDITOR", "Auditor"
+        AUDITOR = "AUDITOR", "Consulta (solo lectura)"
 
     rol = models.CharField(
         max_length=20,

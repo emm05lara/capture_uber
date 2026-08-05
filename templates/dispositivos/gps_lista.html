@@ -11,9 +11,11 @@
             {{ page_obj.paginator.count }} resultado{{ page_obj.paginator.count|pluralize }}
         </span>
     </div>
+    {% if puede_capturar %}
     <a href="{% url 'dispositivos:gps_nuevo' %}" class="btn btn-dark">
         <i class="bi bi-plus-lg me-1"></i>Nuevo GPS
     </a>
+    {% endif %}
 </div>
 
 <!-- ─── Filtros ─── -->
@@ -117,10 +119,12 @@
                            class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation()">
                             Ver
                         </a>
+                        {% if puede_editar %}
                         <a href="{% url 'dispositivos:gps_editar' gps.pk %}"
                            class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

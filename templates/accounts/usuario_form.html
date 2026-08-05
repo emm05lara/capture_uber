@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'accounts:usuarios_lista' %}">Usuarios</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ titulo }}</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-person-gear me-1"></i>{{ titulo }}
+            </div>
+            <div class="card-body">
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% for campo in form %}
+                    <div class="mb-3 {% if campo.field.widget.input_type == 'checkbox' %}form-check{% endif %}">
+                        {% if campo.field.widget.input_type == 'checkbox' %}
+                        {{ campo }}
+                        <label for="{{ campo.id_for_label }}" class="form-check-label">
+                            {{ campo.label }}
+                        </label>
+                        {% else %}
+                        <label for="{{ campo.id_for_label }}" class="form-label fw-semibold">
+                            {{ campo.label }}
+                            {% if campo.field.required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ campo }}
+                        {% endif %}
+                        {% if campo.help_text %}
+                        <div class="form-text">{{ campo.help_text|safe }}</div>
+                        {% endif %}
+                        {% for error in campo.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    {% if not es_nuevo %}
+                    <div class="alert alert-secondary small">
+                        <i class="bi bi-shield-lock me-1"></i>
+                        La contraseña no se muestra ni se edita desde aquí. Usa
+                        <a href="{% url 'accounts:usuario_password' usuario_editado.pk %}">
+                            establecer contraseña
+                        </a>
+                        si necesitas asignar una temporal.
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Guardar
+                        </button>
+                        <a href="{% url 'accounts:usuarios_lista' %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

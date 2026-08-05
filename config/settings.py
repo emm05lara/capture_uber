@@ -50,6 +50,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Va al final: necesita request.user ya resuelto y no debe tocar los
+    # estáticos, que WhiteNoise responde antes de llegar aquí.
+    "accounts.middleware.SinCacheParaSesionMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -64,6 +67,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Matriz de permisos por rol (accounts/permissions.py)
+                "accounts.context_processors.permisos",
             ],
         },
     },

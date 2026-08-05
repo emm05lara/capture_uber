@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+
+<!-- ─── Encabezado ─── -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Usuarios</h1>
+        <span class="text-muted small">
+            {{ page_obj.paginator.count }} usuario{{ page_obj.paginator.count|pluralize }}
+        </span>
+    </div>
+    <a href="{% url 'accounts:usuario_nuevo' %}" class="btn btn-dark">
+        <i class="bi bi-person-plus me-1"></i>Nuevo usuario
+    </a>
+</div>
+
+<!-- ─── Filtros ─── -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control"
+                           placeholder="Usuario, nombre o correo…">
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Rol</label>
+                <select name="rol" class="form-select">
+                    <option value="">Todos</option>
+                    {% for val, etiqueta in rol_choices %}
+                    <option value="{{ val }}" {% if rol == val %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+                {% if q or rol %}
+                <a href="{% url 'accounts:usuarios_lista' %}" class="btn btn-outline-secondary" title="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── Tabla ─── -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 table-flotilla">
+            <thead class="table-dark">
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombre completo</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Django Admin</th>
+                    <th>Último acceso</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in page_obj %}
+                <tr>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>{{ u.get_full_name|default:"—" }}</td>
+                    <td>{{ u.email|default:"—" }}</td>
+                    <td>
+                        {% if u.rol == "ADMINISTRADOR" %}
+                        <span class="badge bg-primary">Administrador</span>
+                        {% elif u.rol == "OPERADOR" %}
+                        <span class="badge bg-info text-dark">Operador</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Consulta</span>
+                        {% endif %}
+                        {% if u.is_superuser %}
+                        <span class="badge bg-dark ms-1" title="Superusuario de Django">Superusuario</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.is_active %}
+                        <span class="badge bg-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.is_staff %}
+                        <span class="badge bg-warning text-dark">Staff</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap text-muted small">
+                        {{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}
+                    </td>
+                    <td class="text-end text-nowrap">
+                        {% if u.is_superuser and not request.user.is_superuser %}
+                        <span class="text-muted small">Solo un superusuario</span>
+                        {% else %}
+                        <a href="{% url 'accounts:usuario_editar' u.pk %}"
+                           class="btn btn-sm btn-outline-secondary" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'accounts:usuario_password' u.pk %}"
+                           class="btn btn-sm btn-outline-secondary" title="Establecer contraseña">
+                            <i class="bi bi-key"></i>
+                        </a>
+                        {% if u.is_active %}
+                        {% if u.pk != request.user.pk %}
+                        <form method="post" action="{% url 'accounts:usuario_desactivar' u.pk %}"
+                              class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Desactivar">
+                                <i class="bi bi-person-slash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% else %}
+                        <form method="post" action="{% url 'accounts:usuario_activar' u.pk %}"
+                              class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="Activar">
+                                <i class="bi bi-person-check"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-people"></i>
+                            No se encontraron usuarios con los filtros seleccionados.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            de {{ page_obj.paginator.count }}
+        </small>
+        <nav aria-label="Paginación de usuarios">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                    {% if page_obj.has_previous %}
+                    <a class="page-link" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        &laquo; Anterior
+                    </a>
+                    {% else %}
+                    <span class="page-link">&laquo; Anterior</span>
+                    {% endif %}
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                    {% if page_obj.has_next %}
+                    <a class="page-link" href="?{{ query_string }}{% if query_string %}&{% endif %}page={{ page_obj.next_page_number }}">
+                        Siguiente &raquo;
+                    </a>
+                    {% else %}
+                    <span class="page-link">Siguiente &raquo;</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<p class="text-muted small mt-3 mb-0">
+    <i class="bi bi-info-circle me-1"></i>
+    Los usuarios nunca se eliminan: se desactivan para conservar su historial.
+    El acceso a Django Admin (<em>staff</em>) y el superusuario se administran
+    fuera de esta pantalla.
+</p>
+
+{% endblock %}

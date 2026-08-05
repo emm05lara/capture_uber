@@ -12,12 +12,16 @@
         </span>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        {% if puede_exportar %}
         <a href="{% url 'actores:conductores_exportar' %}?{{ query_string }}" class="btn btn-outline-secondary">
             <i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel
         </a>
+        {% endif %}
+        {% if puede_capturar %}
         <a href="{% url 'actores:conductor_nuevo' %}" class="btn btn-dark">
             <i class="bi bi-plus-lg me-1"></i>Nuevo conductor
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -164,12 +168,14 @@
                         {% endif %}
                     </td>
                     <td class="text-end text-nowrap">
+                        {% if puede_editar %}
                         <a href="{% url 'actores:conductor_editar' conductor.pk %}"
                            class="btn btn-sm btn-outline-secondary me-1"
                            onclick="event.stopPropagation()"
                            title="Editar">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% endif %}
                         <a href="{% url 'actores:conductor_detalle' conductor.pk %}"
                            class="btn btn-sm btn-outline-primary"
                            onclick="event.stopPropagation()">
@@ -186,9 +192,11 @@
                             No se encontraron conductores con los filtros seleccionados.
                             {% else %}
                             No hay conductores registrados.
+                            {% if puede_capturar %}
                             <a href="{% url 'actores:conductor_nuevo' %}" class="d-block mt-2">
                                 Registrar el primero
                             </a>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </td>

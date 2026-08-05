@@ -2,7 +2,6 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef, Q, Sum
@@ -11,6 +10,13 @@ from django.utils.dateparse import parse_date
 from django.utils.timezone import localdate
 from django.views.decorators.http import require_POST
 
+from accounts.decorators import (
+    requiere_accion_operativa,
+    requiere_captura,
+    requiere_consulta,
+    requiere_edicion,
+    requiere_exportacion,
+)
 from dispositivos.forms import AsignacionTagForm, InstalacionGpsForm
 from dispositivos.models import AsignacionTag, DispositivoGps, InstalacionGps, TagTelepeaje
 from operacion.forms import AsignacionVehiculoForm
@@ -73,7 +79,7 @@ def _filtros_dashboard(request):
     }
 
 
-@login_required
+@requiere_consulta
 def dashboard(request):
     hoy = localdate()
     filtros = _filtros_dashboard(request)
@@ -131,7 +137,7 @@ def dashboard(request):
     })
 
 
-@login_required
+@requiere_exportacion
 def dashboard_exportar(request):
     hoy = localdate()
     filtros = _filtros_dashboard(request)
@@ -216,7 +222,7 @@ def _fichas_filtradas(request):
     return fichas, filtros
 
 
-@login_required
+@requiere_consulta
 def lista_vehiculos(request):
     fichas, filtros = _fichas_filtradas(request)
 
@@ -238,7 +244,7 @@ def lista_vehiculos(request):
     })
 
 
-@login_required
+@requiere_exportacion
 def exportar_lista_vehiculos(request):
     fichas, _ = _fichas_filtradas(request)
     wb = construir_libro_vehiculos(fichas)
@@ -246,7 +252,7 @@ def exportar_lista_vehiculos(request):
     return respuesta_excel(wb, nombre)
 
 
-@login_required
+@requiere_captura
 def nuevo_vehiculo(request):
     if request.method == "POST":
         form = NuevoVehiculoForm(request.POST)
@@ -285,7 +291,7 @@ def nuevo_vehiculo(request):
     return render(request, "vehiculos/nuevo.html", {"form": form})
 
 
-@login_required
+@requiere_edicion
 def editar_vehiculo(request, pk):
     vehiculo = get_object_or_404(
         Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
@@ -326,7 +332,7 @@ def editar_vehiculo(request, pk):
     })
 
 
-@login_required
+@requiere_accion_operativa
 def nueva_placa(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     emplacamiento_actual = vehiculo.emplacamiento_actual
@@ -369,7 +375,7 @@ def nueva_placa(request, pk):
     })
 
 
-@login_required
+@requiere_accion_operativa
 @require_POST
 def cambiar_estatus(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
@@ -430,7 +436,7 @@ def _datos_detalle_vehiculo(vehiculo):
     }
 
 
-@login_required
+@requiere_consulta
 def detalle_vehiculo(request, pk):
     vehiculo = get_object_or_404(
         Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
@@ -446,7 +452,7 @@ def detalle_vehiculo(request, pk):
     })
 
 
-@login_required
+@requiere_exportacion
 def exportar_detalle(request, pk):
     vehiculo = get_object_or_404(
         Vehiculo.objects.select_related("modelo_vehiculo__marca", "color"),
@@ -461,7 +467,7 @@ def exportar_detalle(request, pk):
     return respuesta_excel(wb, nombre)
 
 
-@login_required
+@requiere_accion_operativa
 def asignar_conductor(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     asignacion_actual = (
@@ -513,7 +519,7 @@ def asignar_conductor(request, pk):
     })
 
 
-@login_required
+@requiere_accion_operativa
 @require_POST
 def finalizar_asignacion(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
@@ -550,7 +556,7 @@ def finalizar_asignacion(request, pk):
     return redirect("vehiculos:detalle", pk=pk)
 
 
-@login_required
+@requiere_accion_operativa
 def cambiar_conductor(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     asignacion_actual = (
@@ -620,7 +626,7 @@ def cambiar_conductor(request, pk):
 # Pólizas de seguro
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_captura
 def poliza_nueva(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
 
@@ -660,7 +666,7 @@ def poliza_nueva(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def poliza_editar(request, pk, poliza_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     poliza = get_object_or_404(PolizaSeguro, pk=poliza_pk, vehiculo=vehiculo)
@@ -712,7 +718,7 @@ def poliza_editar(request, pk, poliza_pk):
 # Verificaciones vehiculares
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_captura
 def verificacion_nueva(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
 
@@ -750,7 +756,7 @@ def verificacion_nueva(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def verificacion_editar(request, pk, verificacion_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     verificacion = get_object_or_404(VerificacionVehicular, pk=verificacion_pk, vehiculo=vehiculo)
@@ -792,7 +798,7 @@ def verificacion_editar(request, pk, verificacion_pk):
 # Tarjetas de circulación
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_captura
 def tarjeta_nueva(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
 
@@ -825,7 +831,7 @@ def tarjeta_nueva(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def tarjeta_editar(request, pk, tarjeta_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     tarjeta = get_object_or_404(TarjetaCirculacion, pk=tarjeta_pk, vehiculo=vehiculo)
@@ -864,7 +870,7 @@ def tarjeta_editar(request, pk, tarjeta_pk):
 # Tenencias
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_captura
 def tenencia_nueva(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
 
@@ -902,7 +908,7 @@ def tenencia_nueva(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def tenencia_editar(request, pk, tenencia_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     tenencia = get_object_or_404(Tenencia, pk=tenencia_pk, vehiculo=vehiculo)
@@ -950,7 +956,7 @@ def tenencia_editar(request, pk, tenencia_pk):
 # Adeudos vehiculares
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_captura
 def adeudo_nuevo(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
 
@@ -982,7 +988,7 @@ def adeudo_nuevo(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def adeudo_editar(request, pk, adeudo_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     adeudo = get_object_or_404(AdeudoVehicular, pk=adeudo_pk, vehiculo=vehiculo)
@@ -1031,7 +1037,7 @@ def adeudo_editar(request, pk, adeudo_pk):
     })
 
 
-@login_required
+@requiere_accion_operativa
 @require_POST
 def adeudo_pagar(request, pk, adeudo_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
@@ -1051,7 +1057,7 @@ def adeudo_pagar(request, pk, adeudo_pk):
     return redirect("vehiculos:detalle", pk=pk)
 
 
-@login_required
+@requiere_accion_operativa
 @require_POST
 def adeudo_cancelar(request, pk, adeudo_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
@@ -1075,7 +1081,7 @@ def adeudo_cancelar(request, pk, adeudo_pk):
 # Observaciones / bitácora
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_captura
 def observacion_nueva(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
 
@@ -1105,7 +1111,7 @@ def observacion_nueva(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def observacion_editar(request, pk, observacion_pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     observacion = get_object_or_404(Observacion, pk=observacion_pk, vehiculo=vehiculo)
@@ -1153,7 +1159,7 @@ def observacion_editar(request, pk, observacion_pk):
 # GPS
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_accion_operativa
 def gps_instalar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     instalacion_actual = vehiculo.instalaciones_gps.filter(fecha_retiro__isnull=True).select_related("gps").first()
@@ -1195,7 +1201,7 @@ def gps_instalar(request, pk):
     return render(request, "vehiculos/gps_instalar.html", {"form": form, "vehiculo": vehiculo})
 
 
-@login_required
+@requiere_accion_operativa
 @require_POST
 def gps_retirar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
@@ -1224,7 +1230,7 @@ def gps_retirar(request, pk):
     return redirect("vehiculos:detalle", pk=pk)
 
 
-@login_required
+@requiere_accion_operativa
 def gps_cambiar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     instalacion_actual = (
@@ -1288,7 +1294,7 @@ def gps_cambiar(request, pk):
 # TAG de telepeaje
 # ---------------------------------------------------------------------------
 
-@login_required
+@requiere_accion_operativa
 def tag_asignar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     asignacion_actual = vehiculo.asignaciones_tag.filter(fecha_fin__isnull=True).select_related("tag").first()
@@ -1328,7 +1334,7 @@ def tag_asignar(request, pk):
     return render(request, "vehiculos/tag_asignar.html", {"form": form, "vehiculo": vehiculo})
 
 
-@login_required
+@requiere_accion_operativa
 @require_POST
 def tag_retirar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
@@ -1353,7 +1359,7 @@ def tag_retirar(request, pk):
     return redirect("vehiculos:detalle", pk=pk)
 
 
-@login_required
+@requiere_accion_operativa
 def tag_cambiar(request, pk):
     vehiculo = get_object_or_404(Vehiculo, pk=pk)
     asignacion_actual = (

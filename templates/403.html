@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Acceso denegado{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-shield-lock text-secondary" style="font-size:3rem;"></i>
+                <h1 class="h3 mt-3 mb-2">No tienes permiso para esta operación</h1>
+                <p class="text-muted mb-1">
+                    Tu cuenta no cuenta con los permisos necesarios para acceder a esta
+                    página o realizar esta acción.
+                </p>
+                {% if rol_legible %}
+                <p class="text-muted small mb-4">
+                    Rol actual: <strong>{{ rol_legible }}</strong>.
+                    Si necesitas más permisos, solicítalos a un administrador del sistema.
+                </p>
+                {% else %}
+                <p class="text-muted small mb-4">
+                    Si crees que se trata de un error, contacta a un administrador del sistema.
+                </p>
+                {% endif %}
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <a href="{% url 'vehiculos:dashboard' %}" class="btn btn-primary">
+                        <i class="bi bi-speedometer2 me-1"></i>Volver al dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

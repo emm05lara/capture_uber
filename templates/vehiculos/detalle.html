@@ -95,20 +95,26 @@
 
             <!-- Botones de acción -->
             <div class="col-auto d-flex flex-column flex-sm-row gap-2 mt-2 mt-sm-0">
+                {% if puede_exportar %}
                 <a href="{% url 'vehiculos:exportar_detalle' vehiculo.pk %}"
                    class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-file-earmark-excel me-1"></i>Exportar ficha
                 </a>
+                {% endif %}
+                {% if puede_editar %}
                 <a href="{% url 'vehiculos:editar' vehiculo.pk %}"
                    class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-pencil me-1"></i>Editar datos
                 </a>
+                {% endif %}
+                {% if puede_ejecutar_acciones %}
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary"
                         data-bs-toggle="modal"
                         data-bs-target="#modalCambiarEstatus">
                     <i class="bi bi-arrow-repeat me-1"></i>Cambiar estatus
                 </button>
+                {% endif %}
             </div>
 
         </div>
@@ -240,6 +246,7 @@
                             <dd class="col-7"><code>{{ asignacion_actual.cuenta }}</code></dd>
                             {% endif %}
                         </dl>
+                        {% if puede_ejecutar_acciones %}
                         <div class="d-flex flex-wrap gap-2 mt-3">
                             <a href="{% url 'vehiculos:cambiar_conductor' vehiculo.pk %}"
                                class="btn btn-sm btn-outline-secondary">
@@ -252,15 +259,18 @@
                                 <i class="bi bi-x-circle me-1"></i>Finalizar asignación
                             </button>
                         </div>
+                        {% endif %}
                         {% else %}
                         <div class="empty-state py-3">
                             <i class="bi bi-person-dash"></i>
                             <span class="d-block small">Sin conductor asignado.</span>
                         </div>
+                        {% if puede_ejecutar_acciones %}
                         <a href="{% url 'vehiculos:asignar_conductor' vehiculo.pk %}"
                            class="btn btn-sm btn-primary mt-2">
                             <i class="bi bi-person-plus me-1"></i>Asignar conductor
                         </a>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -331,7 +341,7 @@
     <!-- ═══ TAB 2: ASIGNACIONES ═══ -->
     <div class="tab-pane fade" id="tab-asignaciones" role="tabpanel">
         <div class="d-flex justify-content-end mb-2">
-            {% if not asignacion_actual %}
+            {% if not asignacion_actual and puede_ejecutar_acciones %}
             <a href="{% url 'vehiculos:asignar_conductor' vehiculo.pk %}" class="btn btn-sm btn-primary">
                 <i class="bi bi-person-plus me-1"></i>Asignar conductor
             </a>
@@ -406,10 +416,12 @@
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">
                 Placas / Emplacamientos
             </h6>
+            {% if puede_ejecutar_acciones %}
             <a href="{% url 'vehiculos:nueva_placa' vehiculo.pk %}"
                class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Nueva placa
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
@@ -443,9 +455,11 @@
         <!-- Pólizas de seguro -->
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">Pólizas de seguro</h6>
+            {% if puede_capturar %}
             <a href="{% url 'vehiculos:poliza_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Registrar póliza
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
@@ -482,9 +496,11 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
+                            {% if puede_editar %}
                             <a href="{% url 'vehiculos:poliza_editar' vehiculo.pk p.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -497,9 +513,11 @@
         <!-- Verificaciones -->
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">Verificaciones vehiculares</h6>
+            {% if puede_capturar %}
             <a href="{% url 'vehiculos:verificacion_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Registrar verificación
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
@@ -531,9 +549,11 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
+                            {% if puede_editar %}
                             <a href="{% url 'vehiculos:verificacion_editar' vehiculo.pk v.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -546,9 +566,11 @@
         <!-- Tarjetas de circulación -->
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">Tarjetas de circulación</h6>
+            {% if puede_capturar %}
             <a href="{% url 'vehiculos:tarjeta_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Registrar tarjeta
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive mb-4">
             <table class="table table-sm align-middle">
@@ -576,9 +598,11 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
+                            {% if puede_editar %}
                             <a href="{% url 'vehiculos:tarjeta_editar' vehiculo.pk t.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -591,9 +615,11 @@
         <!-- Tenencias -->
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">Tenencias</h6>
+            {% if puede_capturar %}
             <a href="{% url 'vehiculos:tenencia_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Registrar tenencia
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
@@ -620,9 +646,11 @@
                             {% if ten.monto_tenencia %}${{ ten.monto_tenencia|floatformat:2 }}{% else %}—{% endif %}
                         </td>
                         <td class="text-end">
+                            {% if puede_editar %}
                             <a href="{% url 'vehiculos:tenencia_editar' vehiculo.pk ten.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -649,6 +677,7 @@
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">
                 <i class="bi bi-broadcast me-1"></i>GPS
             </h6>
+            {% if puede_ejecutar_acciones %}
             {% if gps_actual %}
             <div class="d-flex gap-2">
                 <a href="{% url 'vehiculos:gps_cambiar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
@@ -663,6 +692,7 @@
             <a href="{% url 'vehiculos:gps_instalar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Instalar GPS
             </a>
+            {% endif %}
             {% endif %}
         </div>
 
@@ -733,6 +763,7 @@
             <h6 class="text-uppercase text-muted small fw-semibold mb-0">
                 <i class="bi bi-tag me-1"></i>TAG de telepeaje
             </h6>
+            {% if puede_ejecutar_acciones %}
             {% if tag_actual %}
             <div class="d-flex gap-2">
                 <a href="{% url 'vehiculos:tag_cambiar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
@@ -747,6 +778,7 @@
             <a href="{% url 'vehiculos:tag_asignar' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Asignar TAG
             </a>
+            {% endif %}
             {% endif %}
         </div>
 
@@ -828,9 +860,11 @@
                 <span class="text-success"><i class="bi bi-check2-circle me-1"></i>Sin adeudos pendientes</span>
                 {% endif %}
             </div>
+            {% if puede_capturar %}
             <a href="{% url 'vehiculos:adeudo_nuevo' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Registrar adeudo
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
@@ -863,7 +897,8 @@
                         <td>{{ ad.fecha_consulta|date:"d/m/Y"|default:"—" }}</td>
                         <td class="text-muted small">{{ ad.observacion_adeudo|default:"—" }}</td>
                         <td class="text-end text-nowrap">
-                            {% if ad.estatus_adeudo == "PENDIENTE" %}
+                            {% if ad.estatus_adeudo == "PENDIENTE" and puede_escribir %}
+                            {% if puede_ejecutar_acciones %}
                             <button type="button"
                                     class="btn btn-sm btn-outline-success"
                                     data-bs-toggle="modal"
@@ -878,10 +913,13 @@
                                     title="Cancelar adeudo">
                                 <i class="bi bi-x-lg"></i>
                             </button>
+                            {% endif %}
+                            {% if puede_editar %}
                             <a href="{% url 'vehiculos:adeudo_editar' vehiculo.pk ad.pk %}"
                                class="btn btn-sm btn-outline-secondary" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
                             {% else %}
                             <span class="text-muted small">Sin acciones</span>
                             {% endif %}
@@ -905,9 +943,11 @@
     <!-- ═══ TAB 6: BITÁCORA / OBSERVACIONES ═══ -->
     <div class="tab-pane fade" id="tab-observaciones" role="tabpanel">
         <div class="d-flex justify-content-end mb-2">
+            {% if puede_capturar %}
             <a href="{% url 'vehiculos:observacion_nueva' vehiculo.pk %}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-plus-lg me-1"></i>Agregar observación
             </a>
+            {% endif %}
         </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle">
@@ -946,10 +986,12 @@
                             {{ obs.autor_registro|default:"—" }}
                         </td>
                         <td class="text-end">
+                            {% if puede_editar %}
                             {% if not obs.autor_registro_id or obs.autor_registro_id == request.user.id %}
                             <a href="{% url 'vehiculos:observacion_editar' vehiculo.pk obs.pk %}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr>
@@ -974,6 +1016,7 @@
 </div>
 
 <!-- ─── Modales: Pagar / Cancelar adeudo ─── -->
+{% if puede_ejecutar_acciones %}
 {% for ad in adeudos %}
 {% if ad.estatus_adeudo == "PENDIENTE" %}
 <div class="modal fade" id="modalPagarAdeudo{{ ad.pk }}" tabindex="-1"
@@ -1042,9 +1085,10 @@
 </div>
 {% endif %}
 {% endfor %}
+{% endif %}
 
 <!-- ─── Modal: Retirar GPS ─── -->
-{% if gps_actual %}
+{% if gps_actual and puede_ejecutar_acciones %}
 <div class="modal fade" id="modalRetirarGps" tabindex="-1"
      aria-labelledby="modalRetirarGpsLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1085,7 +1129,7 @@
 {% endif %}
 
 <!-- ─── Modal: Retirar TAG ─── -->
-{% if tag_actual %}
+{% if tag_actual and puede_ejecutar_acciones %}
 <div class="modal fade" id="modalRetirarTag" tabindex="-1"
      aria-labelledby="modalRetirarTagLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1126,6 +1170,7 @@
 {% endif %}
 
 <!-- ─── Modal: Cambiar estatus ─── -->
+{% if puede_ejecutar_acciones %}
 <div class="modal fade" id="modalCambiarEstatus" tabindex="-1"
      aria-labelledby="modalCambiarEstatusLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -1167,8 +1212,10 @@
     </div>
 </div>
 
+{% endif %}
+
 <!-- ─── Modal: Finalizar asignación ─── -->
-{% if asignacion_actual %}
+{% if asignacion_actual and puede_ejecutar_acciones %}
 <div class="modal fade" id="modalFinalizarAsignacion" tabindex="-1"
      aria-labelledby="modalFinalizarAsignacionLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

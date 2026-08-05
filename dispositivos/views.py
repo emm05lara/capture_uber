@@ -1,12 +1,16 @@
 from urllib.parse import urlencode
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from accounts.decorators import (
+    requiere_captura,
+    requiere_consulta,
+    requiere_edicion,
+)
 from .forms import DispositivoGpsForm, TagTelepeajeForm
 from .models import AsignacionTag, DispositivoGps, InstalacionGps, TagTelepeaje
 
@@ -29,7 +33,7 @@ def _gps_queryset_anotado():
     )
 
 
-@login_required
+@requiere_consulta
 def gps_lista(request):
     gpss = _gps_queryset_anotado()
 
@@ -62,7 +66,7 @@ def gps_lista(request):
     })
 
 
-@login_required
+@requiere_captura
 def gps_nuevo(request):
     if request.method == "POST":
         form = DispositivoGpsForm(request.POST)
@@ -88,7 +92,7 @@ def gps_nuevo(request):
     return render(request, "dispositivos/gps_form.html", {"form": form, "es_edicion": False})
 
 
-@login_required
+@requiere_edicion
 def gps_editar(request, pk):
     gps = get_object_or_404(DispositivoGps, pk=pk)
 
@@ -119,7 +123,7 @@ def gps_editar(request, pk):
     return render(request, "dispositivos/gps_form.html", {"form": form, "gps": gps, "es_edicion": True})
 
 
-@login_required
+@requiere_consulta
 def gps_detalle(request, pk):
     gps = get_object_or_404(DispositivoGps, pk=pk)
     instalaciones = list(gps.instalaciones.select_related("vehiculo").order_by("-fecha_instalacion"))
@@ -150,7 +154,7 @@ def _tag_queryset_anotado():
     )
 
 
-@login_required
+@requiere_consulta
 def tag_lista(request):
     tags = _tag_queryset_anotado()
 
@@ -183,7 +187,7 @@ def tag_lista(request):
     })
 
 
-@login_required
+@requiere_captura
 def tag_nuevo(request):
     if request.method == "POST":
         form = TagTelepeajeForm(request.POST)
@@ -209,7 +213,7 @@ def tag_nuevo(request):
     return render(request, "dispositivos/tag_form.html", {"form": form, "es_edicion": False})
 
 
-@login_required
+@requiere_edicion
 def tag_editar(request, pk):
     tag = get_object_or_404(TagTelepeaje, pk=pk)
 
@@ -240,7 +244,7 @@ def tag_editar(request, pk):
     return render(request, "dispositivos/tag_form.html", {"form": form, "tag": tag, "es_edicion": True})
 
 
-@login_required
+@requiere_consulta
 def tag_detalle(request, pk):
     tag = get_object_or_404(TagTelepeaje, pk=pk)
     asignaciones = list(tag.asignaciones.select_related("vehiculo").order_by("-fecha_inicio"))

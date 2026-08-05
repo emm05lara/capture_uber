@@ -2,13 +2,18 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import localdate
 
+from accounts.decorators import (
+    requiere_captura,
+    requiere_consulta,
+    requiere_edicion,
+    requiere_exportacion,
+)
 from operacion.models import AsignacionVehiculo
 from vehiculos.exporters import construir_libro_conductores, respuesta_excel
 from vehiculos.models import Emplacamiento
@@ -97,7 +102,7 @@ def _conductores_filtrados(request):
     return conductores, filtros
 
 
-@login_required
+@requiere_consulta
 def conductores_lista(request):
     conductores, filtros = _conductores_filtrados(request)
     paginator = Paginator(conductores, 25)
@@ -118,7 +123,7 @@ def conductores_lista(request):
     })
 
 
-@login_required
+@requiere_exportacion
 def conductores_exportar(request):
     conductores, _ = _conductores_filtrados(request)
     wb = construir_libro_conductores(conductores)
@@ -126,7 +131,7 @@ def conductores_exportar(request):
     return respuesta_excel(wb, nombre)
 
 
-@login_required
+@requiere_captura
 def conductor_nuevo(request):
     if request.method == "POST":
         form = ConductorForm(request.POST)
@@ -166,7 +171,7 @@ def conductor_nuevo(request):
     })
 
 
-@login_required
+@requiere_consulta
 def conductor_detalle(request, pk):
     conductor = get_object_or_404(Conductor, pk=pk)
     asignaciones = (
@@ -191,7 +196,7 @@ def conductor_detalle(request, pk):
     })
 
 
-@login_required
+@requiere_edicion
 def conductor_editar(request, pk):
     conductor = get_object_or_404(Conductor, pk=pk)
 
